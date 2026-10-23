@@ -1,0 +1,29 @@
+# รัน MySQL + Mosquitto ด้วยคำสั่ง: docker compose up -d
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: parking-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: smart_parking
+      TZ: Asia/Bangkok
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: parking-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto_data:/mosquitto/data
+
+volumes:
+  mysql_data:
+  mosquitto_data:
