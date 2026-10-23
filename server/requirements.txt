@@ -1,0 +1,9 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+paho-mqtt==2.1.*
+mysql-connector-python==9.1.*
+python-dotenv==1.0.*
+opencv-python==4.10.*
+ultralytics>=8.3
+easyocr==1.7.*
+numpy<2.2
