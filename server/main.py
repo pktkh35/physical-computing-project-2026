@@ -49,6 +49,10 @@ def handle_gate(payload: dict):
     threading.Thread(target=_process_gate, daemon=True).start()
 
 
+def _lcd_free():
+    mqttc.set_lcd("Free slot", str(db.count_free_slots()))
+
+
 def _process_gate():
     global _last_open
     try:
@@ -56,34 +60,30 @@ def _process_gate():
             log.info("อยู่ในช่วง cooldown หลังเปิดประตู ข้าม")
             return
 
-        mqttc.set_lcd("Reading plate...", "Please wait")
         plate, _ = reader.read()
 
         if not plate:
-            mqttc.set_lcd("Plate not found", "Please retry")
             return
 
         # รถคันนี้อยู่ในลานแล้ว -> ถือว่าขาออก
         open_log = db.find_open_log(plate)
         if open_log:
-            db.mark_exit(open_log["id"])
-            mqttc.set_lcd("Goodbye!", plate_to_ascii(plate))
+            db.delete_log(open_log["id"])
+            _lcd_free()
             mqttc.open_gate()
             _last_open = time.time()
             return
 
         free = db.count_free_slots()
         if free <= 0:
-            mqttc.set_lcd("Parking FULL", "Sorry")
             return
 
         db.insert_entry(plate)
-        mqttc.set_lcd(f"Welcome {plate_to_ascii(plate)}", f"Free slot: {free}")
+        _lcd_free()
         mqttc.open_gate()
         _last_open = time.time()
     except Exception:
         log.exception("ประมวลผลรถที่ประตูไม่สำเร็จ")
-        mqttc.set_lcd("System error", "Call staff")
     finally:
         _gate_lock.release()
 
@@ -94,8 +94,7 @@ def handle_park(payload: dict):
     occupied = bool(payload["occupied"])
     db.update_slot(slot, occupied)
     mqttc.set_led(slot, "red" if occupied else "green")
-    free = db.count_free_slots()
-    mqttc.set_lcd("Smart Parking", f"Free slot: {free}")
+    _lcd_free()
 
 
 # ==================== Receive: Command (แทน REST เดิม) ====================
@@ -128,7 +127,7 @@ async def lifespan(app: FastAPI):
     time.sleep(1)
     for s in db.list_slots():
         mqttc.set_led(s["slot_id"], "red" if s["is_occupied"] else "green")
-    mqttc.set_lcd("Smart Parking", f"Free slot: {db.count_free_slots()}")
+    _lcd_free()
     yield
     mqttc.stop()
 

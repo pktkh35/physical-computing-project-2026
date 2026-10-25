@@ -13,7 +13,7 @@
  *                   LED,<n>,<green|red|off>
  *
  *  Library: Servo (มากับ IDE), LiquidCrystal I2C (Frank de Brabander)
- *  UNO มีขาจำกัด -> ตั้งไว้ 2 ช่องจอด (ใช้ Mega ได้มากกว่า)
+ *  UNO มีขาจำกัด -> ตั้งไว้ 1 ช่องจอด (ใช้ Mega ได้มากกว่า)
  *  LCD I2C ใช้ขา A4 (SDA), A5 (SCL)
  */
 
@@ -30,20 +30,21 @@ const int SERVO_CLOSED = 0;
 const int SERVO_OPEN = 90;
 
 // ---------- Slots ----------
-const int NUM_SLOTS = 2;
-const int SLOT_TRIG[NUM_SLOTS]  = {4, 7};
-const int SLOT_ECHO[NUM_SLOTS]  = {5, 8};
-const int SLOT_GREEN[NUM_SLOTS] = {6, 10};
-const int SLOT_RED[NUM_SLOTS]   = {11, 12};
+const int NUM_SLOTS = 1;
+const int SLOT_TRIG[NUM_SLOTS]  = {4};
+const int SLOT_ECHO[NUM_SLOTS]  = {5};
+const int SLOT_GREEN[NUM_SLOTS] = {6};
+const int SLOT_RED[NUM_SLOTS]   = {7};
 const int SLOT_DETECT_CM = 10;
 
+const unsigned long CLOSE_DELAY_MS = 5000;  // ไม่มีรถนานเท่านี้ถึงปิดไม้กั้น
 const unsigned long DEBOUNCE_MS = 1000;
 
 Servo gateServo;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 bool gateCarPresent = false, gateRawLast = false, gateIsOpen = false;
-unsigned long gateRawSince = 0, gateOpenUntil = 0;
+unsigned long gateRawSince = 0, gateOpenUntil = 0, gateClearSince = 0;
 bool slotOccupied[NUM_SLOTS], slotRawLast[NUM_SLOTS];
 unsigned long slotRawSince[NUM_SLOTS];
 String rxLine;
@@ -76,12 +77,16 @@ void openGate(unsigned long ms) {
 
 void closeGateIfDone() {
   if (!gateIsOpen || millis() < gateOpenUntil) return;
+  // ปิดเมื่อไม่มีรถหน้าประตูต่อเนื่อง CLOSE_DELAY_MS
   if (readDistanceCm(GATE_TRIG, GATE_ECHO) < GATE_DETECT_CM) {
-    gateOpenUntil = millis() + 1000;
+    gateClearSince = 0;
     return;
   }
+  if (gateClearSince == 0) gateClearSince = millis();
+  if (millis() - gateClearSince < CLOSE_DELAY_MS) return;
   gateServo.write(SERVO_CLOSED);
   gateIsOpen = false;
+  gateClearSince = 0;
 }
 
 void sendSlot(int i) {

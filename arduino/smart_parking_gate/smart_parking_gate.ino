@@ -18,9 +18,9 @@
 #include <LiquidCrystal_I2C.h>
 
 // ================== ตั้งค่า ==================
-const char* WIFI_SSID   = "IT-Guy_2.4G";
-const char* WIFI_PASS   = "my-cup-of-tea";
-const char* MQTT_HOST   = "192.168.1.129";   // IP เครื่องที่รัน Mosquitto
+const char* WIFI_SSID   = "pxnd";
+const char* WIFI_PASS   = "12345678";
+const char* MQTT_HOST   = "mqtt-dashboard.com";   // IP เครื่องที่รัน Mosquitto
 const int   MQTT_PORT   = 1883;
 const char* MQTT_USER   = "";               // เว้นว่างถ้าไม่ใช้
 const char* MQTT_PASS   = "";
@@ -37,6 +37,7 @@ const int GATE_DETECT_CM = 15;    // ใกล้กว่านี้ = มี�
 const int SERVO_CLOSED   = 0;
 const int SERVO_OPEN     = 90;
 
+const unsigned long CLOSE_DELAY_MS = 5000;  // ไม่มีรถนานเท่านี้ถึงปิดไม้กั้น
 const unsigned long DEBOUNCE_MS = 1000;  // ค่าต้องนิ่งนานเท่านี้ถึงจะนับว่าเปลี่ยน
 
 // =============================================
@@ -50,6 +51,7 @@ bool gateRawLast = false;
 unsigned long gateRawSince = 0;
 bool gateIsOpen = false;
 unsigned long gateOpenUntil = 0;
+unsigned long gateClearSince = 0;  // 0 = ยังมีรถ/ยังไม่เริ่มนับ
 
 long readDistanceCm(int trig, int echo) {
   digitalWrite(trig, LOW);
@@ -77,13 +79,16 @@ void openGate(unsigned long durationMs) {
 
 void closeGateIfDone() {
   if (!gateIsOpen || millis() < gateOpenUntil) return;
-  // ยังมีรถขวางอยู่ -> รอต่อ ไม่ปิดทับรถ
+  // ปิดเมื่อไม่มีรถหน้าประตูต่อเนื่อง CLOSE_DELAY_MS
   if (readDistanceCm(GATE_TRIG, GATE_ECHO) < GATE_DETECT_CM) {
-    gateOpenUntil = millis() + 1000;
+    gateClearSince = 0;
     return;
   }
+  if (gateClearSince == 0) gateClearSince = millis();
+  if (millis() - gateClearSince < CLOSE_DELAY_MS) return;
   gateServo.write(SERVO_CLOSED);
   gateIsOpen = false;
+  gateClearSince = 0;
   Serial.println("[GATE] closed");
 }
 

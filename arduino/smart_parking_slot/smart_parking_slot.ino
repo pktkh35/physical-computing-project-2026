@@ -18,9 +18,9 @@
 
 // ================== ตั้งค่า ==================
 const int   SLOT_ID     = 1;                // <-- แก้ต่อบอร์ด
-const char* WIFI_SSID   = "IT-Guy_5G";
-const char* WIFI_PASS   = "my-cup-of-tea";
-const char* MQTT_HOST   = "192.168.1.129";   // IP เครื่องที่รัน Mosquitto
+const char* WIFI_SSID   = "pxnd";
+const char* WIFI_PASS   = "12345678";
+const char* MQTT_HOST   = "mqtt-dashboard.com";   // IP เครื่องที่รัน Mosquitto
 const int   MQTT_PORT   = 1883;
 const char* MQTT_USER   = "";               // เว้นว่างถ้าไม่ใช้
 const char* MQTT_PASS   = "";
@@ -30,8 +30,8 @@ const char* T_LED_SET     = "parking/led/set";
 
 const int TRIG      = 4;
 const int ECHO      = 5;
-const int LED_GREEN = 6;
-const int LED_RED   = 7;
+const int PIN_LED_GREEN = 6;
+const int PIN_LED_RED   = 7;
 const int SLOT_DETECT_CM = 10;
 
 const unsigned long DEBOUNCE_MS = 1000;  // ค่าต้องนิ่งนานเท่านี้ถึงจะนับว่าเปลี่ยน
@@ -57,8 +57,8 @@ long readDistanceCm() {
 }
 
 void setLed(const char* color) {
-  digitalWrite(LED_GREEN, strcmp(color, "green") == 0);
-  digitalWrite(LED_RED,   strcmp(color, "red")   == 0);
+  digitalWrite(PIN_LED_GREEN, strcmp(color, "green") == 0);
+  digitalWrite(PIN_LED_RED,   strcmp(color, "red")   == 0);
 }
 
 void publishSlot() {
@@ -125,8 +125,8 @@ void setup() {
 
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_RED, OUTPUT);
+  pinMode(PIN_LED_GREEN, OUTPUT);
+  pinMode(PIN_LED_RED, OUTPUT);
   setLed("green");
 
   connectWiFi();

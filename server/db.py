@@ -49,11 +49,11 @@ def count_free_slots() -> int:
 
 # ---------------- logs ----------------
 def find_open_log(plate: str):
-    """หา log ที่รถคันนี้เข้าแล้วแต่ยังไม่ออก"""
+    """หา log ที่รถคันนี้เข้าแล้ว (ถ้ามี = ยังอยู่ในลาน)"""
     with get_cursor() as cur:
         cur.execute(
             """SELECT * FROM parking_logs
-               WHERE plate_number=%s AND exit_time IS NULL
+               WHERE plate_number=%s
                ORDER BY entry_time DESC LIMIT 1""",
             (plate,),
         )
@@ -66,9 +66,10 @@ def insert_entry(plate: str) -> int:
         return cur.lastrowid
 
 
-def mark_exit(log_id: int):
+def delete_log(log_id: int):
+    """รถออกแล้ว ลบ log ทิ้ง ไม่เก็บเวลาออก"""
     with get_cursor(commit=True) as cur:
-        cur.execute("UPDATE parking_logs SET exit_time=NOW() WHERE id=%s", (log_id,))
+        cur.execute("DELETE FROM parking_logs WHERE id=%s", (log_id,))
 
 
 def list_logs(limit: int = 50):
