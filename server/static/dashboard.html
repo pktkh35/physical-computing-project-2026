@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ลานจอดรถ · Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🅿️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #E4E7EA;          /* คอนกรีต */
+  --surface: #F6F7F8;
+  --ink: #1A1F26;
+  --muted: #5B6470;
+  --rule: #CDD2D8;
+  --asphalt: #2A2E34;
+  --asphalt-2: #33383F;
+  --paint: #EDEDE6;       /* สีตีเส้น */
+  --marking: #E5B42E;     /* เหลืองจราจร */
+  --free: #1F9A67;
+  --busy: #D2463A;
+  --bar: #3F4A57;
+  --bar-soft: #A9B2BC;
+  --font: "IBM Plex Sans Thai", "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #14171B; --surface: #1C2025; --ink: #E7EAEE; --muted: #98A1AC; --rule: #2C3238;
+    --asphalt: #0E1013; --asphalt-2: #191C20; --paint: #D9D9D2;
+    --bar: #C3CBD4; --bar-soft: #4B545E;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14171B; --surface: #1C2025; --ink: #E7EAEE; --muted: #98A1AC; --rule: #2C3238;
+  --asphalt: #0E1013; --asphalt-2: #191C20; --paint: #D9D9D2;
+  --bar: #C3CBD4; --bar-soft: #4B545E;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 15px/1.6 var(--font);
+  font-variant-numeric: tabular-nums;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 20px 48px; }
+
+/* ---------- header ---------- */
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+h1 { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--free); box-shadow: 0 0 0 3px color-mix(in srgb, var(--free) 25%, transparent); }
+.status.off .dot { background: var(--busy); box-shadow: 0 0 0 3px color-mix(in srgb, var(--busy) 25%, transparent); }
+
+.alert { display: none; margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--busy);
+  background: color-mix(in srgb, var(--busy) 10%, var(--surface)); }
+.alert.show { display: block; }
+
+/* ---------- lot (hero) ---------- */
+.top { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+.lot {
+  position: relative; border-radius: 14px; overflow: hidden; color: var(--paint);
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,.035) 0 1px, transparent 1.5px) 0 0 / 7px 7px,
+    radial-gradient(circle at 70% 60%, rgba(0,0,0,.18) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+    var(--asphalt);
+  padding: 22px 22px 0;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: end;
+}
+.sign { padding-bottom: 26px; min-width: 150px; }
+.sign .label { font-size: 15px; color: color-mix(in srgb, var(--paint) 70%, transparent); }
+.sign .big { font-size: 88px; line-height: .95; font-weight: 700; letter-spacing: -0.03em; color: #4FD39A; }
+.sign .big.full { color: #FF7A6E; font-size: 64px; }
+.sign .of { font-size: 15px; color: color-mix(in srgb, var(--paint) 70%, transparent); margin-top: 6px; }
+
+.bays-scroll { overflow-x: auto; }
+.bays { display: flex; min-width: min-content; }
+.bay {
+  position: relative; width: 112px; height: 196px; flex: 0 0 auto;
+  border-left: 4px solid var(--paint); border-top: 4px solid var(--paint);
+  display: flex; align-items: center; justify-content: center;
+}
+.bay:last-child { border-right: 4px solid var(--paint); }
+.bay .num { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-weight: 700; font-size: 22px;
+  color: color-mix(in srgb, var(--paint) 80%, transparent); }
+.bay .led { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; background: #4FD39A;
+  box-shadow: 0 0 10px 2px rgba(79,211,154,.6); }
+.bay.busy .led { background: #FF6B5E; box-shadow: 0 0 10px 2px rgba(255,107,94,.6); }
+.bay .free-label { font-size: 14px; color: #4FD39A; margin-top: -24px; }
+.bay .since { position: absolute; top: 6px; left: 8px; font-size: 11.5px; color: color-mix(in srgb, var(--paint) 55%, transparent); }
+.car { width: 66px; height: 132px; margin-top: -18px; }
+.car.arrive { animation: park .7s cubic-bezier(.2,.8,.2,1); }
+@keyframes park { from { transform: translateY(130px); opacity: 0; } to { transform: none; opacity: 1; } }
+.lane { grid-column: 1 / -1; height: 44px; margin: 0 -22px; position: relative; background: var(--asphalt-2); }
+.lane::after { content: ""; position: absolute; left: 22px; right: 22px; top: 50%; height: 3px; transform: translateY(-50%);
+  background: repeating-linear-gradient(90deg, var(--marking) 0 26px, transparent 26px 46px); opacity: .85; }
+
+/* ---------- side stats ---------- */
+.stats { display: grid; grid-template-rows: repeat(3, auto); gap: 16px; align-content: start; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 16px 18px; }
+.stat .k { color: var(--muted); font-size: 14px; }
+.stat .v { font-size: 34px; font-weight: 700; line-height: 1.15; }
+.stat .v small { font-size: 15px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.stat .d { font-size: 13.5px; color: var(--muted); }
+.up { color: var(--free); } .down { color: var(--busy); }
+
+/* ---------- charts ---------- */
+.grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-top: 16px; }
+.grid3 { display: grid; grid-template-columns: 1.15fr 1fr 0.85fr; gap: 16px; margin-top: 16px; }
+.grid2 > *, .grid3 > *, .top > * { min-width: 0; }
+h2 { font-size: 17px; font-weight: 600; margin: 0 0 2px; }
+.sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; }
+.legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.chart-scroll { overflow-x: auto; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { font: 11.5px var(--font); fill: var(--muted); }
+
+/* ---------- tables ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 13px; padding: 0 0 8px; border-bottom: 1px solid var(--rule); }
+td { padding: 9px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+.plate {
+  display: inline-block; padding: 1px 9px; border-radius: 5px; font-weight: 600; font-size: 14px; letter-spacing: .02em;
+  background: #FBFBF7; color: #15191E; border: 1.5px solid #15191E; white-space: nowrap;
+}
+.state { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.state::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--free); }
+.state.free { color: var(--free); }
+.state.busy { color: var(--busy); }
+.state.busy::before { background: var(--busy); }
+.slotno { font-weight: 600; }
+.empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+.visits { font-weight: 600; }
+
+footer { margin-top: 22px; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 1000px) {
+  .top { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; }
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 16px 12px 36px; }
+  .lot { grid-template-columns: 1fr; gap: 8px; padding: 18px 16px 0; }
+  .lane { margin: 0 -16px; }
+  .sign { padding-bottom: 4px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .sign .big { font-size: 64px; }
+  .bay { width: 78px; height: 150px; }
+  .bay .since { display: none; }
+  .car { width: 48px; height: 96px; }
+  .chart-scroll svg.chart { min-width: 560px; }
+  .stats { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .car.arrive { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ลานจอดรถ</h1>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">กำลังโหลดข้อมูล…</span></div>
+  </header>
+
+  <div class="alert" id="alert" role="alert"></div>
+
+  <section class="top">
+    <div class="lot" aria-label="ผังช่องจอด">
+      <div class="sign">
+        <div class="label">ที่ว่างตอนนี้</div>
+        <div class="big" id="freeBig">–</div>
+        <div class="of" id="freeOf"></div>
+      </div>
+      <div class="bays-scroll"><div class="bays" id="bays"></div></div>
+      <div class="lane"></div>
+    </div>
+
+    <div class="stats">
+      <div class="panel stat">
+        <div class="k">รถเข้าวันนี้</div>
+        <div class="v" id="today">–</div>
+        <div class="d" id="todayCmp"></div>
+      </div>
+      <div class="panel stat">
+        <div class="k">รถที่อยู่ในลาน</div>
+        <div class="v" id="inside">–</div>
+        <div class="d" id="insideNote"></div>
+      </div>
+      <div class="panel stat">
+        <div class="k">เฉลี่ยต่อวัน (14 วัน)</div>
+        <div class="v" id="avgDay">–</div>
+        <div class="d" id="busiest"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>รถเข้ารายชั่วโมง</h2>
+      <p class="sub">วันนี้เทียบกับค่าเฉลี่ย 7 วันก่อนหน้า</p>
+      <div class="legend"><span><i style="background:var(--bar)"></i>วันนี้</span><span><i style="background:var(--marking)"></i>เฉลี่ย 7 วัน</span></div>
+      <div class="chart-scroll"><svg class="chart" id="hourly" viewBox="0 0 640 210" role="img" aria-label="กราฟรถเข้ารายชั่วโมง"></svg></div>
+    </div>
+    <div class="panel">
+      <h2>รถเข้ารายวัน</h2>
+      <p class="sub">14 วันล่าสุด</p>
+      <div class="legend"><span><i style="background:var(--bar-soft)"></i>วันก่อนหน้า</span><span><i style="background:var(--bar)"></i>วันนี้</span></div>
+      <svg class="chart" id="daily" viewBox="0 0 420 210" role="img" aria-label="กราฟรถเข้ารายวัน"></svg>
+    </div>
+  </section>
+
+  <section class="grid3">
+    <div class="panel">
+      <h2>สถานะช่องจอด</h2>
+      <p class="sub">จากเซนเซอร์ในแต่ละช่อง</p>
+      <div id="slotTable"></div>
+    </div>
+    <div class="panel">
+      <h2>เข้าล่าสุด</h2>
+      <p class="sub">12 รายการล่าสุดจาก entry_history</p>
+      <div id="recentTable"></div>
+    </div>
+    <div class="panel">
+      <h2>ขาประจำ</h2>
+      <p class="sub">เข้าบ่อยที่สุดใน 30 วัน</p>
+      <div id="regularTable"></div>
+    </div>
+  </section>
+
+  <footer id="footer">รีเฟรชอัตโนมัติทุก 5 วินาที</footer>
+</div>
+
+<script>
+const API = "/api/dashboard";
+const REFRESH_MS = 5000;
+const CAR_COLORS = ["#C9CED4", "#F2F2EE", "#2F4A6B", "#1E2226", "#9C2F2A", "#5E6C5A", "#B8A27A"];
+const TH_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+let prevSlots = {};
+let lastOk = null;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const parse = (s) => new Date(String(s).replace(" ", "T"));
+const hhmm = (d) => d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+
+// 1กข1234 -> 1กข 1234
+function plate(p) {
+  const m = String(p).match(/^(\d?[ก-ฮ]+)(\d+)$/);
+  return `<span class="plate">${esc(m ? m[1] + " " + m[2] : p)}</span>`;
+}
+function duration(min) {
+  min = Math.max(0, Math.round(min));
+  if (min < 60) return `${min} นาที`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} ชม. ${m} นาที` : `${h} ชม.`;
+}
+function ago(date, now) {
+  const min = (now - date) / 60000;
+  if (min < 1) return "เมื่อสักครู่";
+  if (min < 60) return `${Math.round(min)} นาทีที่แล้ว`;
+  const sameDay = date.toDateString() === now.toDateString();
+  if (sameDay) return `วันนี้ ${hhmm(date)}`;
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (date.toDateString() === y.toDateString()) return `เมื่อวาน ${hhmm(date)}`;
+  return date.toLocaleDateString("th-TH", { day: "numeric", month: "short" }) + " " + hhmm(date);
+}
+
+function carSVG(color, arrive) {
+  return `<svg class="car${arrive ? " arrive" : ""}" viewBox="0 0 60 120" aria-hidden="true">
+    <rect x="3" y="2" width="54" height="116" rx="16" fill="${color}" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/>
+    <path d="M10 30 Q30 20 50 30 L47 46 Q30 41 13 46 Z" fill="#1d2833" opacity=".9"/>
+    <rect x="12" y="50" width="36" height="34" rx="6" fill="rgba(0,0,0,.12)"/>
+    <path d="M13 90 Q30 94 47 90 L49 104 Q30 108 11 104 Z" fill="#1d2833" opacity=".85"/>
+    <rect x="7" y="6" width="10" height="5" rx="2" fill="#FFF6C8"/><rect x="43" y="6" width="10" height="5" rx="2" fill="#FFF6C8"/>
+    <rect x="7" y="110" width="10" height="4" rx="1.5" fill="#E0463A"/><rect x="43" y="110" width="10" height="4" rx="1.5" fill="#E0463A"/>
+  </svg>`;
+}
+
+function renderLot(d, now) {
+  const s = d.summary;
+  const big = $("freeBig");
+  if (s.total_slots === 0) {
+    big.textContent = "–"; $("freeOf").textContent = "ยังไม่มีช่องจอดในฐานข้อมูล";
+  } else if (s.free === 0) {
+    big.textContent = "เต็ม"; big.classList.add("full"); $("freeOf").textContent = `ทั้ง ${s.total_slots} ช่องมีรถจอด`;
+  } else {
+    big.textContent = s.free; big.classList.remove("full"); $("freeOf").textContent = `จากทั้งหมด ${s.total_slots} ช่อง`;
+  }
+
+  const firstRender = Object.keys(prevSlots).length === 0;
+  $("bays").innerHTML = d.slots.map(slot => {
+    const busy = !!slot.is_occupied;
+    const arrive = busy && !firstRender && prevSlots[slot.slot_id] === 0;
+    const since = ago(parse(slot.updated_at), now);
+    const inner = busy
+      ? carSVG(CAR_COLORS[(slot.slot_id - 1) % CAR_COLORS.length], arrive)
+      : `<span class="free-label">ว่าง</span>`;
+    return `<div class="bay${busy ? " busy" : ""}" title="ช่อง ${slot.slot_id}: ${busy ? "มีรถ" : "ว่าง"} (เปลี่ยนสถานะ ${since})">
+      <span class="since">${esc(since)}</span><span class="led"></span>${inner}<span class="num">${slot.slot_id}</span></div>`;
+  }).join("");
+  prevSlots = Object.fromEntries(d.slots.map(x => [x.slot_id, x.is_occupied ? 1 : 0]));
+}
+
+function renderStats(d) {
+  const s = d.summary;
+  $("today").innerHTML = `${s.entries_today}<small>คัน</small>`;
+  const diff = s.entries_today - s.entries_yesterday_same_time;
+  $("todayCmp").innerHTML = diff === 0
+    ? `เท่ากับเมื่อวานช่วงเวลาเดียวกัน`
+    : `<span class="${diff > 0 ? "up" : "down"}">${diff > 0 ? "มากกว่า" : "น้อยกว่า"} ${Math.abs(diff)} คัน</span> เทียบเมื่อวานช่วงเวลาเดียวกัน`;
+
+  $("inside").innerHTML = `${s.inside}<small>คัน</small>`;
+  $("insideNote").textContent = s.inside === s.occupied
+    ? `ตรงกับช่องที่มีรถ ${s.occupied} ช่อง`
+    : `เซนเซอร์เห็นรถ ${s.occupied} ช่อง (อาจมีรถที่ยังไม่ได้เข้าช่อง)`;
+
+  const total = d.daily.reduce((a, x) => a + x.count, 0);
+  const past = d.daily.slice(0, -1);
+  const avg = past.length ? past.reduce((a, x) => a + x.count, 0) / past.length : 0;
+  $("avgDay").innerHTML = `${avg.toFixed(1)}<small>คัน</small>`;
+  const best = d.daily.reduce((a, x) => x.count > a.count ? x : a, { count: -1 });
+  $("busiest").textContent = total
+    ? `วันที่เข้ามากสุด ${parse(best.date + "T00:00:00").toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" })} (${best.count} คัน)`
+    : "ยังไม่มีข้อมูล";
+}
+
+// เลือกช่วงแกน Y ที่เป็นเลขกลม ๆ (ไม่เกิน 6 เส้น)
+function scale(v) {
+  for (const step of [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]) {
+    const n = Math.ceil(Math.max(v, 1) / step);
+    if (n <= 6) return { max: n * step, step };
+  }
+  return { max: v, step: v / 4 };
+}
+function gridLines(sc, y, L, R, W) {
+  let g = "";
+  for (let v = 0; v <= sc.max + 1e-9; v += sc.step) {
+    const yy = y(v);
+    g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--rule)"/>
+          <text x="${L - 6}" y="${yy + 4}" text-anchor="end">${+v.toFixed(1)}</text>`;
+  }
+  return g;
+}
+
+function renderHourly(d, now) {
+  const W = 640, H = 210, L = 28, R = 6, T = 8, B = 26;
+  const cw = (W - L - R) / 24, ch = H - T - B;
+  const sc = scale(Math.max(...d.hourly.map(x => Math.max(x.today, x.avg7))));
+  const y = v => T + ch - (v / sc.max) * ch;
+  const cur = now.getHours();
+  let g = gridLines(sc, y, L, R, W);
+  d.hourly.forEach((x, h) => {
+    const bw = cw * 0.62, bx = L + h * cw + (cw - bw) / 2;
+    if (x.today > 0) {
+      const op = h === cur ? 1 : 0.85;
+      g += `<rect x="${bx}" y="${y(x.today)}" width="${bw}" height="${ch + T - y(x.today)}" rx="2" fill="var(--bar)" opacity="${op}"><title>${h}:00 น. วันนี้ ${x.today} คัน · เฉลี่ย ${x.avg7}</title></rect>`;
+    }
+    if (h % 3 === 0) g += `<text x="${L + h * cw + cw / 2}" y="${H - 8}" text-anchor="middle">${String(h).padStart(2, "0")}</text>`;
+  });
+  const pts = d.hourly.map((x, h) => `${L + h * cw + cw / 2},${y(x.avg7)}`).join(" ");
+  g += `<polyline points="${pts}" fill="none" stroke="var(--marking)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  const nx = L + cur * cw + cw / 2;
+  g += `<line x1="${nx}" x2="${nx}" y1="${T}" y2="${T + ch}" stroke="var(--muted)" stroke-dasharray="3 3"/>
+        <text x="${nx + 4}" y="${T + 10}">ตอนนี้</text>`;
+  $("hourly").innerHTML = g;
+}
+
+function renderDaily(d) {
+  const W = 420, H = 210, L = 28, R = 4, T = 8, B = 34;
+  const n = d.daily.length, cw = (W - L - R) / n, ch = H - T - B;
+  const sc = scale(Math.max(...d.daily.map(x => x.count)));
+  const y = v => T + ch - (v / sc.max) * ch;
+  let g = gridLines(sc, y, L, R, W);
+  d.daily.forEach((x, i) => {
+    const dt = parse(x.date + "T00:00:00"), last = i === n - 1;
+    const bw = cw * 0.66, bx = L + i * cw + (cw - bw) / 2;
+    g += `<rect x="${bx}" y="${y(x.count)}" width="${bw}" height="${ch + T - y(x.count)}" rx="2" fill="${last ? "var(--bar)" : "var(--bar-soft)"}"><title>${dt.toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "short" })}: ${x.count} คัน</title></rect>`;
+    g += `<text x="${bx + bw / 2}" y="${H - 18}" text-anchor="middle">${TH_DAYS[dt.getDay()]}</text>
+          <text x="${bx + bw / 2}" y="${H - 4}" text-anchor="middle">${dt.getDate()}</text>`;
+  });
+  $("daily").innerHTML = g;
+}
+
+function renderTables(d, now) {
+  $("slotTable").innerHTML = d.slots.length ? `<table>
+    <thead><tr><th>ช่อง</th><th>สถานะ</th><th class="r">ตั้งแต่</th></tr></thead><tbody>
+    ${d.slots.map(x => `<tr>
+      <td class="slotno">ช่อง ${x.slot_id}</td>
+      <td>${x.is_occupied ? `<span class="state busy">ไม่ว่าง</span>` : `<span class="state free">ว่าง</span>`}</td>
+      <td class="r">${ago(parse(x.updated_at), now)}</td>
+    </tr>`).join("")}</tbody></table>` : `<p class="empty">ยังไม่มีช่องจอดในฐานข้อมูล</p>`;
+
+  $("recentTable").innerHTML = d.recent.length ? `<table>
+    <thead><tr><th>ทะเบียน</th><th class="r">เวลาเข้า</th></tr></thead><tbody>
+    ${d.recent.map(x => `<tr><td>${plate(x.plate_number)}</td><td class="r">${ago(parse(x.entry_time), now)}</td></tr>`).join("")}
+    </tbody></table>` : `<p class="empty">ยังไม่มีรถเข้า</p>`;
+
+  $("regularTable").innerHTML = d.regulars.length ? `<table>
+    <thead><tr><th>ทะเบียน</th><th class="r">ครั้ง</th></tr></thead><tbody>
+    ${d.regulars.map(x => `<tr title="เข้าล่าสุด ${ago(parse(x.last_visit), now)}"><td>${plate(x.plate_number)}</td><td class="r visits">${x.visits}</td></tr>`).join("")}
+    </tbody></table>` : `<p class="empty">ยังไม่มีข้อมูล</p>`;
+}
+
+async function refresh() {
+  try {
+    const res = await fetch(`${API}?days=14`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    const now = parse(d.server_time);
+    renderLot(d, now); renderStats(d); renderHourly(d, now); renderDaily(d); renderTables(d, now);
+    lastOk = now;
+    $("status").classList.remove("off");
+    $("statusText").textContent = `อัปเดตล่าสุด ${now.toLocaleTimeString("th-TH")}`;
+    $("alert").classList.remove("show");
+  } catch (e) {
+    $("status").classList.add("off");
+    $("statusText").textContent = lastOk ? `ขาดการเชื่อมต่อ · ข้อมูลล่าสุด ${lastOk.toLocaleTimeString("th-TH")}` : "เชื่อมต่อไม่ได้";
+    $("alert").textContent = `ดึงข้อมูลจาก ${API} ไม่ได้ (${e.message}) — ตรวจว่า server และ MySQL ทำงานอยู่ แล้วหน้านี้จะลองใหม่เองทุก 5 วินาที`;
+    $("alert").classList.add("show");
+  }
+}
+
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>

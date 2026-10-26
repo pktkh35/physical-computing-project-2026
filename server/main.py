@@ -5,6 +5,7 @@ Smart Parking Server
   - บันทึก MySQL
   - สั่ง Arduino (Set LCD / Open Gate / Set LED)
   - REST API ดูสถานะช่องจอด/ประวัติรถที่เข้าลาน (http://localhost:8000/docs)
+  - หน้า Dashboard (http://localhost:8000/dashboard)
   - สั่งงานด้วยมือผ่าน MQTT topic parking/cmd/#
 
 รัน:  uvicorn main:app --host 0.0.0.0 --port 8000
@@ -19,6 +20,7 @@ from fastapi import FastAPI
 
 import config as C
 import db
+from dashboard import router as dashboard_router
 from mqtt_client import ParkingMQTT
 from plate_reader import PlateReader
 
@@ -133,6 +135,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Smart Parking API", lifespan=lifespan)
+app.include_router(dashboard_router)   # หน้าเว็บ /dashboard + /api/dashboard
 
 
 @app.get("/")

@@ -23,14 +23,18 @@ smart-parking/
 │   ├── mqtt_client.py                Send / Receive MQTT
 │   ├── plate_reader.py               กล้อง + YOLO + OCR
 │   ├── db.py                         ฟังก์ชัน MySQL
+│   ├── dashboard.py                  หน้า Dashboard (/dashboard) + API (/api/dashboard)
+│   ├── static/dashboard.html         หน้าเว็บ Dashboard
 │   ├── config.py                     อ่านค่าจาก .env
 │   ├── .env.example
 │   └── requirements.txt
 ├── database/schema.sql               สร้างตาราง MySQL
+├── database/mock_data.sql            ข้อมูลจำลองสำหรับทดสอบ Dashboard
 ├── mosquitto/config/mosquitto.conf
 ├── tools/
 │   ├── simulator.py                  จำลอง Arduino (ทดสอบไม่ต้องมีบอร์ด)
-│   └── serial_bridge.py              ตัวแปลง Serial ↔ MQTT สำหรับ UNO
+│   ├── serial_bridge.py              ตัวแปลง Serial ↔ MQTT สำหรับ UNO
+│   └── generate_mock_data.py         สร้าง database/mock_data.sql ชุดใหม่
 └── docker-compose.yml                MySQL + Mosquitto
 ```
 
@@ -115,6 +119,27 @@ python tools/simulator.py
 ```
 ตั้ง `CAMERA_URL=0` ใน `.env` เพื่อใช้เว็บแคมแทน IP Camera ระหว่างทดสอบ
 
+### 5) Dashboard + ข้อมูลจำลอง
+
+ใส่ข้อมูลจำลอง (⚠ จะล้างข้อมูลเดิมใน `parking_slots`, `parking_logs`, `entry_history` ทั้งหมด)
+```bash
+# ใช้ Docker
+docker exec -i parking-mysql mysql -uroot -proot1234 < database/mock_data.sql
+# ไม่ใช้ Docker
+mysql -u root -p < database/mock_data.sql
+```
+ข้อมูลที่ได้: ช่องจอด 4 ช่อง (มีรถ 3 ช่อง), รถที่อยู่ในลาน 3 คัน, ประวัติรถเข้าย้อนหลัง 30 วัน ~500 รายการ
+เวลาในไฟล์อ้างอิงจาก `NOW()`/`CURDATE()` จึงรันวันไหนข้อมูลก็เป็นของ "วันนี้" เสมอ
+อยากได้ชุดใหม่: `python tools/generate_mock_data.py --days 60 --seed 7`
+
+เปิด Dashboard
+```bash
+cd server
+uvicorn main:app --host 0.0.0.0 --port 8000        # server เต็ม (ต้องมี MQTT broker)
+uvicorn dashboard:app --host 0.0.0.0 --port 8000   # เฉพาะ dashboard ใช้แค่ MySQL
+```
+แล้วเปิด http://localhost:8000/dashboard (รีเฟรชข้อมูลเองทุก 5 วินาที)
+
 ---
 
 ## การต่อวงจร Arduino UNO R4 WiFi
@@ -150,6 +175,8 @@ python tools/simulator.py
 | GET | `/` | สถานะระบบ + จำนวนช่องว่าง |
 | GET | `/slots` | สถานะทุกช่องจอด |
 | GET | `/logs?limit=50` | ประวัติรถที่เข้าลาน (เก็บเฉพาะทะเบียน + เวลาเข้า ไม่ลบ) |
+| GET | `/dashboard` | หน้าเว็บ Dashboard |
+| GET | `/api/dashboard?days=14` | ข้อมูลทั้งหมดที่ Dashboard ใช้ (สรุป, ช่องจอด, รถในลาน, กราฟรายชั่วโมง/รายวัน, ขาประจำ) |
 
 ## คำสั่งมือผ่าน MQTT (แทน REST เดิม)
 
