@@ -4,7 +4,7 @@ Smart Parking Server
   - อ่านทะเบียนด้วย YOLO + OCR
   - บันทึก MySQL
   - สั่ง Arduino (Set LCD / Open Gate / Set LED)
-  - REST API ดูสถานะช่องจอด/ประวัติรถเข้า-ออก (http://localhost:8000/docs)
+  - REST API ดูสถานะช่องจอด/ประวัติรถที่เข้าลาน (http://localhost:8000/docs)
   - สั่งงานด้วยมือผ่าน MQTT topic parking/cmd/#
 
 รัน:  uvicorn main:app --host 0.0.0.0 --port 8000

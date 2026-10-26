@@ -18,8 +18,8 @@
 #include <LiquidCrystal_I2C.h>
 
 // ================== ตั้งค่า ==================
-const char* WIFI_SSID   = "pxnd";
-const char* WIFI_PASS   = "12345678";
+const char* WIFI_SSID   = "IT-Guy_2.4G";
+const char* WIFI_PASS   = "my-cup-of-tea";
 const char* MQTT_HOST   = "mqtt-dashboard.com";   // IP เครื่องที่รัน Mosquitto
 const int   MQTT_PORT   = 1883;
 const char* MQTT_USER   = "";               // เว้นว่างถ้าไม่ใช้

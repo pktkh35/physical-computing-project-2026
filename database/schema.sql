@@ -20,4 +20,13 @@ CREATE TABLE IF NOT EXISTS parking_logs (
   INDEX idx_entry (entry_time)
 );
 
+-- ประวัติรถที่เข้าลาน (ไม่ลบ) ต่างจาก parking_logs ที่ลบเมื่อรถออก
+CREATE TABLE IF NOT EXISTS entry_history (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  plate_number VARCHAR(20) NOT NULL,
+  entry_time   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_plate (plate_number),
+  INDEX idx_entry (entry_time)
+);
+
 INSERT IGNORE INTO parking_slots (slot_id, is_occupied) VALUES (1,0);

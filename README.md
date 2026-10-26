@@ -46,13 +46,15 @@ smart-parking/
 
 ## ขั้นตอนการทำงาน
 
-1. Ultrasonic ที่ประตูเจอรถนิ่งเกิน 1 วินาที → Arduino ส่ง `parking/gate/detect`
-2. Server ดึงภาพจาก IP Camera → YOLO หาป้าย → OCR อ่านทะเบียน
+1. Ultrasonic ที่ประตูเจอรถ (ใกล้กว่า 15 ซม.) นิ่งเกิน 1 วินาที → Arduino ส่ง `parking/gate/detect` (ครั้งเดียวต่อรถ 1 คัน)
+2. Server ประมวลผลใน thread แยก (มี lock กันซ้อน และ cooldown `GATE_COOLDOWN` วินาทีหลังเปิดประตู)
+   ดึงภาพจาก IP Camera → YOLO หาป้าย (crop สูงสุด 3 อันที่มั่นใจสุด) → OCR อ่านทะเบียน
+   ถ้าอ่านทะเบียนไม่ได้ จะไม่ทำอะไรต่อ
 3. Server ตรวจใน MySQL (ทุกคันเข้าได้ ไม่ต้องลงทะเบียน)
-   - รถคันนี้ **อยู่ในลานแล้ว** → บันทึกเวลาออก แล้วเปิดประตู ("Goodbye")
-   - **ลานเต็ม** → "Parking FULL"
-   - ผ่าน → บันทึกเวลาเข้า, Set LCD, Open Gate
-4. Servo ยกไม้กั้น แล้วปิดเองเมื่อครบเวลาและไม่มีรถขวาง
+   - รถคันนี้ **อยู่ในลานแล้ว** → ถือเป็นขาออก ลบจาก `parking_logs` (ไม่เก็บเวลาออก; `entry_history` ยังอยู่) → Set LCD (ช่องว่าง) → Open Gate
+   - **ลานเต็ม** → ไม่เปิดประตู
+   - ผ่าน → บันทึกเวลาเข้า (ลง `parking_logs` และ `entry_history`) → Set LCD (ช่องว่าง) → Open Gate
+4. Servo ยกไม้กั้น 90° แล้วปิดเองเมื่อครบเวลาและเซนเซอร์ไม่เจอรถขวางต่อเนื่อง 5 วินาที
 5. Ultrasonic ที่ช่องจอดเปลี่ยนสถานะ → `parking/slot/status` → Server อัปเดต MySQL แล้วส่ง Set LED และ LCD (จำนวนช่องว่าง)
 
 ---
@@ -90,7 +92,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ### 3) Arduino
 
-**Arduino UNO R4 WiFi (แนะนำ)** — ใช้ 1 บอร์ดสำหรับประตู (`arduino/smart_parking_gate/`) + 1 บอร์ดต่อช่องจอด (`arduino/smart_parking_slot/` แก้ `SLOT_ID` ก่อน Upload แต่ละบอร์ด) ดูวงจรใน `CIRCUIT_BLUEPRINT.md`
+**Arduino UNO R4 WiFi (แนะนำ)** — ใช้ 1 บอร์ดสำหรับประตู (`arduino/smart_parking_gate/`) + 1 บอร์ดต่อช่องจอด (`arduino/smart_parking_slot/` แก้ `SLOT_ID` ก่อน Upload แต่ละบอร์ด) ดูวงจรในหัวข้อ "การต่อวงจร" ด้านล่าง
 1. Boards Manager → ติดตั้ง **Arduino UNO R4 Boards** → เลือก *Arduino UNO R4 WiFi*
 2. Library Manager → `PubSubClient`, `ArduinoJson`, `LiquidCrystal I2C` (Servo มากับบอร์ด)
 3. แก้ `WIFI_SSID`, `WIFI_PASS`, `MQTT_HOST` แล้ว Upload
@@ -147,7 +149,7 @@ python tools/simulator.py
 |---|---|---|
 | GET | `/` | สถานะระบบ + จำนวนช่องว่าง |
 | GET | `/slots` | สถานะทุกช่องจอด |
-| GET | `/logs?limit=50` | ประวัติรถเข้า-ออก |
+| GET | `/logs?limit=50` | ประวัติรถที่เข้าลาน (เก็บเฉพาะทะเบียน + เวลาเข้า ไม่ลบ) |
 
 ## คำสั่งมือผ่าน MQTT (แทน REST เดิม)
 
@@ -170,3 +172,5 @@ mosquitto_pub -t parking/cmd/gate/open -m '{}'
 - ความแม่นยำของ OCR ขึ้นกับมุมกล้องและแสง ควรติดกล้องให้เห็นป้ายตรง ๆ ระยะ 1–3 เมตร
 - ระบบมีประตูเดียว ใช้ทั้งเข้าและออก (แยกจากการเทียบว่าทะเบียนนี้อยู่ในลานหรือไม่)
 - Mosquitto ตั้งค่าแบบไม่มีรหัสผ่าน เหมาะกับเครือข่ายภายในเท่านั้น
+- `MQTT_HOST` ในไฟล์ `.ino` ต้องแก้ให้ตรงกับ broker ของคุณ (ค่าในโค้ดตอนนี้เป็น broker สาธารณะ `mqtt-dashboard.com` ซึ่งใครก็อ่าน topic ได้)
+- ลานเต็มหรืออ่านทะเบียนไม่ได้ ระบบแค่ไม่เปิดประตู ยังไม่มีข้อความแจ้งบน LCD

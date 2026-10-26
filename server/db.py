@@ -63,11 +63,13 @@ def find_open_log(plate: str):
 def insert_entry(plate: str) -> int:
     with get_cursor(commit=True) as cur:
         cur.execute("INSERT INTO parking_logs (plate_number) VALUES (%s)", (plate,))
-        return cur.lastrowid
+        log_id = cur.lastrowid
+        cur.execute("INSERT INTO entry_history (plate_number) VALUES (%s)", (plate,))
+        return log_id
 
 
 def delete_log(log_id: int):
-    """รถออกแล้ว ลบ log ทิ้ง ไม่เก็บเวลาออก"""
+    """รถออกแล้ว ลบ log ทิ้ง (ประวัติการเข้าอยู่ใน entry_history ไม่ถูกลบ)"""
     with get_cursor(commit=True) as cur:
         cur.execute("DELETE FROM parking_logs WHERE id=%s", (log_id,))
 
@@ -75,6 +77,6 @@ def delete_log(log_id: int):
 def list_logs(limit: int = 50):
     with get_cursor() as cur:
         cur.execute(
-            "SELECT * FROM parking_logs ORDER BY entry_time DESC LIMIT %s", (limit,)
+            "SELECT * FROM entry_history ORDER BY entry_time DESC LIMIT %s", (limit,)
         )
         return cur.fetchall()
