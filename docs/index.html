@@ -1,0 +1,2362 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Parking · ระบบลานจอดรถอัจฉริยะ</title>
+<meta name="description" content="ระบบลานจอดรถอัจฉริยะ อ่านป้ายทะเบียนด้วย YOLO + OCR เปิดไม้กั้นอัตโนมัติ และแสดงสถานะช่องจอดด้วย Arduino + MQTT + Python + MySQL">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%232A2E34'/><text x='50' y='72' font-size='62' font-family='Arial' font-weight='700' fill='%23EDEDE6' text-anchor='middle'>P</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #E4E7EA; --surface: #F6F7F8; --ink: #1A1F26; --muted: #56606B; --rule: #CDD2D8;
+  --asphalt: #2A2E34; --asphalt-2: #33383F; --paint: #EDEDE6; --marking: #E5B42E;
+  --free: #1A8A5B; --busy: #C9402F; --code-bg: #FBFBFC;
+  --font: "IBM Plex Sans Thai", "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #14171B; --surface: #1C2025; --ink: #E7EAEE; --muted: #9AA3AD; --rule: #2E343A;
+    --asphalt: #0E1013; --asphalt-2: #191C20; --paint: #D9D9D2; --free: #4FD39A; --busy: #FF7A6E; --code-bg: #0D1117;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.75 var(--font); }
+a { color: inherit; text-decoration-color: var(--marking); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { text-decoration-color: currentColor; }
+:focus-visible { outline: 3px solid var(--marking); outline-offset: 2px; }
+img { max-width: 100%; display: block; }
+
+/* ---------- nav ---------- */
+nav.top {
+  position: sticky; top: 0; z-index: 10; background: var(--asphalt); color: var(--paint);
+  padding-top: env(safe-area-inset-top, 0);
+}
+nav.top .in { max-width: 1120px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; gap: 22px; height: 52px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+nav.top .in::-webkit-scrollbar { display: none; }
+nav.top .brand { font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+nav.top .brand b { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 2.5px solid var(--paint); border-radius: 6px; font-size: 15px; }
+nav.top a.l { text-decoration: none; font-size: 15px; color: color-mix(in srgb, var(--paint) 78%, transparent); }
+nav.top a.l:hover { color: var(--paint); }
+
+/* ---------- hero ---------- */
+.hero { background: var(--asphalt); color: var(--paint); position: relative; overflow: hidden; }
+.hero .in { max-width: 1120px; margin: 0 auto; padding: 56px 20px 0; position: relative; }
+.hero .course { font-size: 15px; color: color-mix(in srgb, var(--paint) 70%, transparent); margin: 0 0 14px; }
+.hero h1 { font-size: clamp(40px, 7vw, 76px); line-height: 1.05; margin: 0; font-weight: 700; letter-spacing: -0.02em; }
+.hero h1 span { display: block; font-size: clamp(22px, 3.2vw, 34px); font-weight: 500; letter-spacing: 0; margin-top: 10px; color: color-mix(in srgb, var(--paint) 82%, transparent); }
+.hero p.lede { max-width: 640px; font-size: 18px; margin: 22px 0 0; color: color-mix(in srgb, var(--paint) 85%, transparent); }
+.hero .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 20px; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 16px; }
+.btn.primary { background: var(--marking); color: #1A1F26; }
+.btn.ghost { border: 2px solid color-mix(in srgb, var(--paint) 50%, transparent); color: var(--paint); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost:hover { border-color: var(--paint); }
+.bays { display: flex; margin-top: 52px; }
+.bay { flex: 1 1 0; max-width: 150px; height: 140px; border-left: 4px solid var(--paint); border-top: 4px solid var(--paint); position: relative; display: grid; place-items: center; }
+.bay:last-child { border-right: 4px solid var(--paint); }
+.bay .n { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; font-weight: 700; font-size: 20px; color: color-mix(in srgb, var(--paint) 75%, transparent); }
+.bay .led { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; background: #4FD39A; box-shadow: 0 0 10px 2px rgba(79,211,154,.55); }
+.bay.busy .led { background: #FF6B5E; box-shadow: 0 0 10px 2px rgba(255,107,94,.55); }
+.bay svg { width: 44px; height: 88px; margin-top: -22px; }
+.lane { height: 40px; background: var(--asphalt-2); position: relative; }
+.lane::after { content: ""; position: absolute; left: 20px; right: 20px; top: 50%; height: 3px; transform: translateY(-50%); background: repeating-linear-gradient(90deg, var(--marking) 0 26px, transparent 26px 46px); opacity: .85; }
+
+/* ---------- layout ---------- */
+main { max-width: 1120px; margin: 0 auto; padding: 0 20px 64px; }
+section { padding-top: 64px; }
+h2 { font-size: 32px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+h3 { font-size: 21px; line-height: 1.35; margin: 32px 0 8px; }
+.sec-sub { color: var(--muted); margin: 0 0 24px; }
+.prose { max-width: 740px; }
+.prose p { margin: 0 0 16px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 22px 24px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.kw { color: var(--muted); font-size: 15px; margin-top: 14px; }
+.lang { font-size: 14px; color: var(--muted); font-weight: 600; margin: 0 0 6px; }
+ul.plain { padding-left: 1.2em; margin: 0; }
+ul.plain li { margin: 4px 0; }
+
+/* abstract */
+.abstract { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.abs-main { padding: 30px 34px; }
+.abs-main p { margin: 0; font-size: 18px; line-height: 1.9; text-indent: 2.5em; text-wrap: pretty; }
+.abs-side { display: grid; gap: 20px; }
+.abs-side .lang { margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips span { font-size: 14.5px; padding: 3px 12px; border-radius: 999px; border: 1.5px solid var(--ink); white-space: nowrap; }
+dl.facts { margin: 0; display: grid; gap: 0; }
+dl.facts div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule); font-size: 15.5px; }
+dl.facts div:last-child { border-bottom: 0; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; font-weight: 600; text-align: right; }
+
+/* objectives */
+ol.obj { margin: 0; padding-left: 1.4em; }
+ol.obj li { margin: 8px 0; }
+
+/* diagram */
+.diagram { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 16px; overflow-x: auto; }
+.diagram svg { min-width: 760px; width: 100%; height: auto; display: block; }
+.diagram text { font-family: var(--font); fill: var(--ink); }
+.diagram .m { fill: var(--muted); }
+
+/* steps */
+ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; display: grid; gap: 14px; }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; }
+ol.steps li::before { content: counter(s); display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; background: var(--asphalt); color: var(--paint); font-weight: 700; }
+ol.steps li div { padding-top: 6px; }
+ol.steps b { display: block; }
+
+/* tables */
+.tbl { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; font-size: 14.5px; color: var(--muted); background: color-mix(in srgb, var(--rule) 30%, var(--surface)); }
+tr:last-child td { border-bottom: 0; }
+code { font-family: var(--mono); font-size: .88em; background: color-mix(in srgb, var(--rule) 45%, transparent); padding: 1px 6px; border-radius: 4px; }
+td code { white-space: nowrap; }
+.dir { white-space: nowrap; font-weight: 600; }
+.dir.in { color: var(--free); } .dir.out { color: var(--busy); }
+
+/* figure */
+figure { margin: 0; }
+figure .frame { border-radius: 12px; overflow: hidden; border: 1px solid var(--rule); background: var(--surface); }
+figcaption { color: var(--muted); font-size: 15px; margin-top: 10px; }
+.ph { display: none; aspect-ratio: 4 / 3; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--muted); border: 2px dashed var(--rule); border-radius: 12px; font-size: 15px; }
+.missing img { display: none; } .missing .ph { display: flex; } .missing .frame { border: 0; background: none; }
+
+/* install */
+pre.cmd { margin: 0 0 14px; background: var(--asphalt); color: var(--paint); border-radius: 10px; padding: 16px 18px; overflow-x: auto; font: 14.5px/1.6 var(--mono); }
+pre.cmd .c { color: color-mix(in srgb, var(--paint) 60%, transparent); }
+
+/* code browser */
+.code-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.folder { margin-top: 22px; }
+.folder > h3 { margin: 0 0 8px; font-size: 16px; font-family: var(--mono); font-weight: 500; color: var(--muted); }
+details.file { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; margin-bottom: 8px; }
+details.file > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 10px auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 16px; min-height: 48px; }
+details.file > summary::-webkit-details-marker { display: none; }
+details.file > summary::before { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
+details.file[open] > summary::before { transform: rotate(45deg); }
+.fname { font-family: var(--mono); font-weight: 500; font-size: 15px; }
+.fdesc { color: var(--muted); font-size: 15px; }
+.flines { color: var(--muted); font-size: 13.5px; white-space: nowrap; }
+details.file .body { border-top: 1px solid var(--rule); position: relative; }
+details.file pre { margin: 0; max-height: 560px; overflow: auto; background: var(--code-bg); border-radius: 0 0 10px 10px; }
+details.file pre code.hljs { background: transparent; font: 13.5px/1.6 var(--mono); padding: 16px 18px; display: block; tab-size: 4; border-radius: 0; }
+details.file pre code { background: none; padding: 16px 18px; display: block; }
+.copy { position: absolute; top: 10px; right: 18px; z-index: 1; font: 600 13px var(--font); border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 6px 12px; min-height: 34px; cursor: pointer; }
+.note { font-size: 15px; color: var(--muted); }
+
+/* team */
+.team { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.member { display: flex; align-items: center; gap: 16px; padding: 18px 20px; }
+.member .avatar { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 12px; background: var(--asphalt); color: var(--paint); display: grid; place-items: center; font-size: 24px; font-weight: 700; }
+.member b { display: block; font-size: 17px; line-height: 1.4; }
+.member .sid { display: block; white-space: nowrap; color: var(--muted); font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.todo { background: color-mix(in srgb, var(--marking) 28%, transparent); padding: 0 4px; border-radius: 3px; }
+
+footer { background: var(--asphalt); color: color-mix(in srgb, var(--paint) 75%, transparent); font-size: 15px; padding: 28px 20px calc(28px + env(safe-area-inset-bottom, 0)); }
+footer .in { max-width: 1120px; margin: 0 auto; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+@media (max-width: 820px) {
+  .two, .abstract { grid-template-columns: 1fr; }
+  .abs-main { padding: 22px 22px; }
+  details.file > summary { grid-template-columns: 10px minmax(0, 1fr); row-gap: 0; }
+  .fdesc { grid-column: 2; }
+  .flines { display: none; }
+  .bay { height: 112px; }
+  .bay svg { width: 32px; height: 64px; margin-top: -20px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="top" aria-label="เมนูหลัก">
+  <div class="in">
+    <a class="brand" href="#top"><b>P</b>Smart Parking</a>
+    <a class="l" href="#abstract">บทคัดย่อ</a>
+    <a class="l" href="#background">ที่มา</a>
+    <a class="l" href="#system">ภาพรวมระบบ</a>
+    <a class="l" href="#hardware">ฮาร์ดแวร์</a>
+    <a class="l" href="#workflow">การทำงาน</a>
+    <a class="l" href="#software">ซอฟต์แวร์</a>
+    <a class="l" href="#dashboard">Dashboard</a>
+    <a class="l" href="#install">ติดตั้ง</a>
+    <a class="l" href="#code">Source Code</a>
+    <a class="l" href="#results">ข้อจำกัด</a>
+    <a class="l" href="#team">ผู้จัดทำ</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="in">
+    <p class="course">โครงงานรายวิชา Physical Computing ปีการศึกษา 2569</p>
+    <h1>Smart Parking<span>ระบบลานจอดรถอัจฉริยะ อ่านป้ายทะเบียนแล้วเปิดไม้กั้นให้เอง</span></h1>
+    <p class="lede">กล้องอ่านป้ายทะเบียนด้วย YOLO + OCR, Arduino ควบคุมไม้กั้นและไฟบอกสถานะช่องจอด, ทุกอย่างคุยกันผ่าน MQTT และบันทึกลง MySQL พร้อมหน้า Dashboard ดูสถานะลานแบบเรียลไทม์</p>
+    <div class="actions">
+      <a class="btn primary" href="#code">ดู Source Code</a>
+      <a class="btn ghost" href="https://github.com/pktkh35/physical-computing-project-2026">เปิด Repository บน GitHub</a>
+    </div>
+    <div class="bays" aria-hidden="true">
+      <div class="bay busy"><span class="led"></span><svg viewBox="0 0 60 120"><rect x="3" y="2" width="54" height="116" rx="16" fill="#C9CED4" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/><path d="M10 30 Q30 20 50 30 L47 46 Q30 41 13 46 Z" fill="#1d2833" opacity=".9"/><rect x="12" y="50" width="36" height="34" rx="6" fill="rgba(0,0,0,.12)"/><path d="M13 90 Q30 94 47 90 L49 104 Q30 108 11 104 Z" fill="#1d2833" opacity=".85"/><rect x="7" y="6" width="10" height="5" rx="2" fill="#FFF6C8"/><rect x="43" y="6" width="10" height="5" rx="2" fill="#FFF6C8"/></svg><span class="n">1</span></div>
+      <div class="bay"><span class="led"></span><span class="n">2</span></div>
+      <div class="bay busy"><span class="led"></span><svg viewBox="0 0 60 120"><rect x="3" y="2" width="54" height="116" rx="16" fill="#2F4A6B" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/><path d="M10 30 Q30 20 50 30 L47 46 Q30 41 13 46 Z" fill="#1d2833" opacity=".9"/><rect x="12" y="50" width="36" height="34" rx="6" fill="rgba(0,0,0,.12)"/><path d="M13 90 Q30 94 47 90 L49 104 Q30 108 11 104 Z" fill="#1d2833" opacity=".85"/><rect x="7" y="6" width="10" height="5" rx="2" fill="#FFF6C8"/><rect x="43" y="6" width="10" height="5" rx="2" fill="#FFF6C8"/></svg><span class="n">3</span></div>
+      <div class="bay"><span class="led"></span><span class="n">4</span></div>
+    </div>
+  </div>
+  <div class="lane"></div>
+</header>
+
+<main>
+
+<!-- ============ บทคัดย่อ ============ -->
+<section id="abstract">
+  <h2>บทคัดย่อ</h2>
+  <p class="sec-sub">Abstract</p>
+  <div class="abstract">
+    <div class="card abs-main">
+      <p>โครงงานนี้พัฒนาระบบลานจอดรถอัจฉริยะที่เปิดไม้กั้นได้อัตโนมัติจากการอ่านป้ายทะเบียน และแสดงสถานะช่องจอดแบบเรียลไทม์ ที่ประตูทางเข้าใช้บอร์ด Arduino UNO R4 WiFi ร่วมกับเซนเซอร์อัลตราโซนิกตรวจจับรถ เซอร์โวมอเตอร์ควบคุมไม้กั้น และจอ LCD 16x2 แสดงจำนวนช่องว่าง ส่วนแต่ละช่องจอดมีเซนเซอร์อัลตราโซนิกตรวจสถานะและ LED สีเขียว/แดงบอกว่าช่องว่างหรือไม่ บอร์ดทั้งหมดสื่อสารกับเซิร์ฟเวอร์ Python (FastAPI) ผ่านโปรโตคอล MQTT เมื่อมีรถมาที่ประตู เซิร์ฟเวอร์จะดึงภาพจากกล้อง IP ใช้โมเดล YOLO หาตำแหน่งป้ายทะเบียน แล้วอ่านตัวอักษรด้วย EasyOCR จากนั้นตรวจสอบกับฐานข้อมูล MySQL เพื่อแยกรถขาเข้าและขาออกโดยใช้ประตูเดียว บันทึกเวลาเข้า และสั่งเปิดไม้กั้นเมื่อลานยังไม่เต็ม ผู้ดูแลติดตามสถานะช่องจอด สถิติรถเข้ารายชั่วโมงและรายวัน และประวัติการเข้าได้จากหน้า Dashboard ที่อัปเดตอัตโนมัติ</p>
+    </div>
+    <aside class="abs-side">
+      <div class="card">
+        <p class="lang">คำสำคัญ</p>
+        <div class="chips"><span>Arduino</span><span>MQTT</span><span>YOLO</span><span>OCR</span><span>การรู้จำป้ายทะเบียน</span><span>Internet of Things</span></div>
+      </div>
+      <div class="card">
+        <p class="lang">สรุปเทคโนโลยี</p>
+        <dl class="facts">
+          <div><dt>บอร์ด</dt><dd>Arduino UNO R4 WiFi</dd></div>
+          <div><dt>การสื่อสาร</dt><dd>MQTT (Mosquitto)</dd></div>
+          <div><dt>อ่านป้ายทะเบียน</dt><dd>YOLO + EasyOCR</dd></div>
+          <div><dt>Server</dt><dd>Python FastAPI</dd></div>
+          <div><dt>ฐานข้อมูล</dt><dd>MySQL</dd></div>
+        </dl>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ ที่มา ============ -->
+<section id="background">
+  <h2>ที่มาและวัตถุประสงค์</h2>
+  <p class="sec-sub">ปัญหาที่เราอยากแก้</p>
+  <div class="two">
+    <div class="prose">
+      <p>ลานจอดรถทั่วไปยังพึ่งคนเฝ้าประตูหรือบัตรจอด ผู้ขับขี่ต้องวนหาช่องว่างเอง และเจ้าของลานแทบไม่มีข้อมูลว่าช่วงไหนรถเข้ามากที่สุด</p>
+      <p>เราจึงสร้างต้นแบบระบบที่ให้ลานจอด "รู้" ว่ารถคันไหนเข้าออก มีช่องว่างเหลือกี่ช่อง และเก็บข้อมูลไว้วิเคราะห์ โดยใช้อุปกรณ์ราคาไม่แพงที่หาได้ทั่วไป</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">วัตถุประสงค์</h3>
+      <ol class="obj">
+        <li>อ่านป้ายทะเบียนรถไทยจากกล้องและเปิดไม้กั้นอัตโนมัติ โดยไม่ต้องมีคนเฝ้า</li>
+        <li>ตรวจสถานะแต่ละช่องจอดและแสดงผลด้วยไฟ LED และจอ LCD ที่ประตู</li>
+        <li>ใช้ประตูเดียวทั้งขาเข้าและขาออก โดยแยกจากข้อมูลในฐานข้อมูล</li>
+        <li>บันทึกประวัติรถเข้าและแสดงสถิติบนหน้า Dashboard</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ภาพรวมระบบ ============ -->
+<section id="system">
+  <h2>ภาพรวมระบบ</h2>
+  <p class="sec-sub">อุปกรณ์แต่ละส่วนเชื่อมกันอย่างไร</p>
+  <div class="diagram">
+    <svg viewBox="0 0 980 400" role="img" aria-label="แผนภาพระบบ: บอร์ด Arduino ส่งข้อมูลผ่าน MQTT broker ไปยัง Python server ซึ่งอ่านภาพจาก IP Camera และบันทึกลง MySQL แล้วแสดงผลบน Dashboard">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker>
+      </defs>
+      <g fill="var(--surface)" stroke="var(--rule)" stroke-width="1.5">
+        <rect x="20" y="40" width="230" height="130" rx="10"/>
+        <rect x="20" y="220" width="230" height="130" rx="10"/>
+        <rect x="350" y="140" width="170" height="110" rx="10"/>
+        <rect x="610" y="110" width="210" height="170" rx="10" fill="var(--asphalt)" stroke="var(--asphalt)"/>
+        <rect x="620" y="10" width="190" height="64" rx="10"/>
+        <rect x="620" y="320" width="190" height="64" rx="10"/>
+        <rect x="850" y="320" width="120" height="64" rx="10"/>
+      </g>
+      <text x="38" y="72" font-weight="700" font-size="17">บอร์ดประตู</text>
+      <text x="38" y="94" class="m" font-size="13.5">Arduino UNO R4 WiFi</text>
+      <text x="38" y="122" font-size="14.5">Ultrasonic ตรวจรถ</text>
+      <text x="38" y="142" font-size="14.5">Servo ไม้กั้น · LCD 16x2</text>
+
+      <text x="38" y="252" font-weight="700" font-size="17">บอร์ดช่องจอด × N</text>
+      <text x="38" y="274" class="m" font-size="13.5">1 บอร์ดต่อ 1 ช่อง</text>
+      <text x="38" y="302" font-size="14.5">Ultrasonic ตรวจช่อง</text>
+      <text x="38" y="322" font-size="14.5">LED เขียว / แดง</text>
+
+      <text x="435" y="185" font-weight="700" font-size="17" text-anchor="middle">Mosquitto</text>
+      <text x="435" y="207" class="m" font-size="13.5" text-anchor="middle">MQTT broker</text>
+      <text x="435" y="228" class="m" font-size="13.5" text-anchor="middle">port 1883</text>
+
+      <text x="715" y="146" font-weight="700" font-size="17" text-anchor="middle" style="fill:var(--paint)">Python Server</text>
+      <text x="715" y="174" font-size="14" text-anchor="middle" style="fill:var(--paint)">FastAPI · main.py</text>
+      <text x="715" y="198" font-size="14" text-anchor="middle" style="fill:var(--paint)">YOLO หาป้าย</text>
+      <text x="715" y="222" font-size="14" text-anchor="middle" style="fill:var(--paint)">EasyOCR อ่านทะเบียน</text>
+      <text x="715" y="246" font-size="14" text-anchor="middle" style="fill:var(--paint)">ตัดสินใจเปิดไม้กั้น</text>
+
+      <text x="715" y="38" font-weight="700" font-size="16" text-anchor="middle">IP Camera</text>
+      <text x="715" y="59" class="m" font-size="13.5" text-anchor="middle">ถ่ายป้ายทะเบียน</text>
+      <text x="715" y="348" font-weight="700" font-size="16" text-anchor="middle">MySQL</text>
+      <text x="715" y="369" class="m" font-size="13.5" text-anchor="middle">ช่องจอด · ประวัติ</text>
+      <text x="910" y="348" font-weight="700" font-size="16" text-anchor="middle">Dashboard</text>
+      <text x="910" y="369" class="m" font-size="13.5" text-anchor="middle">เว็บเบราว์เซอร์</text>
+
+      <g stroke="var(--muted)" stroke-width="2" fill="none">
+        <path d="M250 105 C 300 105, 300 175, 348 180" marker-end="url(#ar)" marker-start="url(#ar)"/>
+        <path d="M250 285 C 300 285, 300 215, 348 210" marker-end="url(#ar)" marker-start="url(#ar)"/>
+        <path d="M520 195 L 608 195" marker-end="url(#ar)" marker-start="url(#ar)"/>
+        <path d="M715 74 L 715 108" marker-end="url(#ar)"/>
+        <path d="M715 282 L 715 318" marker-end="url(#ar)" marker-start="url(#ar)"/>
+        <path d="M820 270 C 900 270, 910 290, 910 318" marker-end="url(#ar)"/>
+      </g>
+      <g font-size="12.5" class="m">
+        <text x="262" y="128">MQTT</text>
+        <text x="262" y="270">MQTT</text>
+        <text x="540" y="186">MQTT</text>
+        <text x="724" y="96">RTSP</text>
+        <text x="724" y="304">SQL</text>
+        <text x="866" y="262">HTTP</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ ฮาร์ดแวร์ ============ -->
+<section id="hardware">
+  <h2>ฮาร์ดแวร์</h2>
+  <p class="sec-sub">อุปกรณ์ที่ใช้และการต่อวงจร</p>
+  <div class="two">
+    <div class="tbl">
+      <table>
+        <thead><tr><th>อุปกรณ์</th><th>จำนวน</th><th>หน้าที่</th></tr></thead>
+        <tbody>
+          <tr><td>Arduino UNO R4 WiFi</td><td>1 + N</td><td>บอร์ดประตู 1 บอร์ด และบอร์ดช่องจอดช่องละ 1 บอร์ด</td></tr>
+          <tr><td>Ultrasonic</td><td>1 + N</td><td>ตรวจรถที่ประตู (&lt; 15 ซม.) และในช่องจอด (&lt; 10 ซม.)</td></tr>
+          <tr><td>Servo motor</td><td>1</td><td>ยกไม้กั้น 0° ↔ 90°</td></tr>
+          <tr><td>LCD 16x2 (I2C)</td><td>1</td><td>แสดงจำนวนช่องว่างที่ประตู</td></tr>
+          <tr><td>LED เขียว / แดง + ตัวต้านทาน 220Ω</td><td>อย่างละ N</td><td>บอกสถานะช่องจอด</td></tr>
+          <tr><td>IP Camera (หรือเว็บแคม)</td><td>1</td><td>ถ่ายภาพป้ายทะเบียน</td></tr>
+          <tr><td>คอมพิวเตอร์ / เซิร์ฟเวอร์</td><td>1</td><td>รัน Python, MySQL และ Mosquitto</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure id="fig-proto">
+      <div class="frame"><img src="assets/prototype.png" alt="ภาพชิ้นงานต้นแบบลานจอดรถ" loading="lazy" onerror="this.closest('figure').classList.add('missing')"></div>
+      <div class="ph">วางรูปถ่ายชิ้นงานจริงไว้ที่<br><code>docs/assets/prototype.jpg</code><br>แล้วรูปจะขึ้นตรงนี้เอง</div>
+      <figcaption>ชิ้นงานต้นแบบ</figcaption>
+    </figure>
+  </div>
+
+  <h3>การต่อวงจร (Arduino UNO R4 WiFi)</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>บอร์ด</th><th>อุปกรณ์</th><th>ขา</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="3">ประตู</td><td>Ultrasonic TRIG / ECHO</td><td><code>D2</code> / <code>D3</code></td></tr>
+        <tr><td>Servo (สายสัญญาณ)</td><td><code>D9</code></td></tr>
+        <tr><td>LCD I2C SDA / SCL</td><td><code>A4</code> / <code>A5</code></td></tr>
+        <tr><td rowspan="2">ช่องจอด<br>(ทุกบอร์ดต่อเหมือนกัน)</td><td>Ultrasonic TRIG / ECHO</td><td><code>D4</code> / <code>D5</code></td></tr>
+        <tr><td>LED เขียว / แดง</td><td><code>D6</code> / <code>D7</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note" style="margin-top:12px">HC-SR04 และ Servo ใช้ไฟ 5V, GND ต่อร่วมกันในแต่ละบอร์ด ถ้าบอร์ดรีเซ็ตตอนเปิดไม้กั้นให้ใช้ไฟเลี้ยง Servo แยก และถ้า LCD ไม่ขึ้นให้ลองเปลี่ยน address จาก <code>0x27</code> เป็น <code>0x3F</code> สำหรับ Arduino UNO รุ่นไม่มี WiFi มีโค้ดแบบส่งผ่าน USB Serial ให้ด้วย (รองรับ 2 ช่องจอด)</p>
+</section>
+
+<!-- ============ การทำงาน ============ -->
+<section id="workflow">
+  <h2>ขั้นตอนการทำงาน</h2>
+  <p class="sec-sub">ตั้งแต่รถมาถึงประตูจนไฟช่องจอดเปลี่ยนสี</p>
+  <div class="two">
+    <ol class="steps">
+      <li><div><b>รถมาถึงประตู</b>Ultrasonic เจอรถใกล้กว่า 15 ซม. นิ่งเกิน 1 วินาที บอร์ดประตูส่ง <code>parking/gate/detect</code> ครั้งเดียวต่อรถหนึ่งคัน</div></li>
+      <li><div><b>อ่านป้ายทะเบียน</b>Server ดึงภาพจาก IP Camera ใช้ YOLO หาป้าย (เลือก 3 ภาพที่มั่นใจสุด) แล้ว OCR อ่านทะเบียน ถ้าอ่านไม่ได้จะไม่ทำอะไรต่อ</div></li>
+      <li><div><b>ตรวจกับฐานข้อมูล</b>ทะเบียนนี้อยู่ในลานแล้ว ถือเป็นขาออก ลบจาก <code>parking_logs</code> แล้วเปิดไม้กั้น ถ้าลานเต็มจะไม่เปิด ถ้าผ่านจะบันทึกเวลาเข้าแล้วเปิดไม้กั้น</div></li>
+      <li><div><b>ไม้กั้นปิดเอง</b>Servo ยกไม้กั้น 90° และปิดเมื่อครบเวลาและไม่มีรถขวางต่อเนื่อง 5 วินาที</div></li>
+      <li><div><b>รถเข้าช่องจอด</b>Ultrasonic ในช่องเปลี่ยนสถานะ ส่ง <code>parking/slot/status</code> Server อัปเดต MySQL สั่ง LED เปลี่ยนสี และอัปเดตจำนวนช่องว่างบน LCD</div></li>
+    </ol>
+    <div class="tbl" style="align-self:start">
+      <table>
+        <thead><tr><th>ทิศทาง</th><th>Topic</th><th>Payload ตัวอย่าง</th></tr></thead>
+        <tbody>
+          <tr><td class="dir in">Arduino → Server</td><td><code>parking/gate/detect</code></td><td><code>{"car":true,"distance":10}</code></td></tr>
+          <tr><td class="dir in">Arduino → Server</td><td><code>parking/slot/status</code></td><td><code>{"slot":1,"occupied":true}</code></td></tr>
+          <tr><td class="dir out">Server → Arduino</td><td><code>parking/gate/open</code></td><td><code>{"action":"open","duration":5000}</code></td></tr>
+          <tr><td class="dir out">Server → Arduino</td><td><code>parking/lcd/set</code></td><td><code>{"line1":"Free slot","line2":"3"}</code></td></tr>
+          <tr><td class="dir out">Server → Arduino</td><td><code>parking/led/set</code></td><td><code>{"slot":1,"color":"red"}</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ซอฟต์แวร์ ============ -->
+<section id="software">
+  <h2>ซอฟต์แวร์และฐานข้อมูล</h2>
+  <p class="sec-sub">เทคโนโลยีที่ใช้</p>
+  <div class="two">
+    <div class="card">
+      <h3 style="margin-top:0">เทคโนโลยี</h3>
+      <ul class="plain">
+        <li><b>Arduino</b> (C++) กับ PubSubClient, ArduinoJson, LiquidCrystal I2C</li>
+        <li><b>MQTT</b> ผ่าน Eclipse Mosquitto</li>
+        <li><b>Python 3.10+</b> กับ FastAPI, paho-mqtt, OpenCV</li>
+        <li><b>Ultralytics YOLO</b> โมเดลที่เทรนสำหรับตรวจจับป้ายทะเบียน</li>
+        <li><b>EasyOCR</b> อ่านตัวอักษรไทยและตัวเลข</li>
+        <li><b>MySQL 8</b> และ Docker Compose</li>
+      </ul>
+    </div>
+    <div class="tbl" style="align-self:start">
+      <table>
+        <thead><tr><th>ตาราง</th><th>เก็บอะไร</th></tr></thead>
+        <tbody>
+          <tr><td><code>parking_slots</code></td><td>สถานะแต่ละช่อง (ว่าง/มีรถ) และเวลาที่เปลี่ยนล่าสุด</td></tr>
+          <tr><td><code>parking_logs</code></td><td>รถที่อยู่ในลานตอนนี้ ลบออกเมื่อรถออก</td></tr>
+          <tr><td><code>entry_history</code></td><td>ประวัติรถเข้าทั้งหมด (ทะเบียน + เวลา) ไม่ลบ ใช้ทำสถิติ</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Dashboard ============ -->
+<section id="dashboard">
+  <h2>Dashboard</h2>
+  <p class="sec-sub">ดูสถานะลานจากเว็บเบราว์เซอร์ อัปเดตทุก 5 วินาที</p>
+  <figure>
+    <div class="frame"><img src="assets/dashboard.png" alt="หน้า Dashboard แสดงผังช่องจอด กราฟรถเข้ารายชั่วโมงและรายวัน และตารางสถานะช่องจอด" loading="lazy"></div>
+    <figcaption>หน้า Dashboard (ภาพจากข้อมูลทดสอบ) แสดงผังช่องจอดพร้อมไฟสถานะ จำนวนช่องว่าง รถเข้าวันนี้ กราฟรายชั่วโมงเทียบค่าเฉลี่ย 7 วัน กราฟรายวัน 14 วัน สถานะแต่ละช่อง และรถที่เข้าล่าสุด</figcaption>
+  </figure>
+</section>
+
+<!-- ============ ติดตั้ง ============ -->
+<section id="install">
+  <h2>วิธีติดตั้งและใช้งาน</h2>
+  <p class="sec-sub">ทดสอบบน Windows (PowerShell)</p>
+  <div class="two">
+    <div>
+      <h3 style="margin-top:0">1. MySQL + Mosquitto</h3>
+<pre class="cmd"><span class="c"># ที่โฟลเดอร์โปรเจกต์</span>
+docker compose up -d</pre>
+      <h3>2. Python Server</h3>
+<pre class="cmd">cd server
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env   <span class="c"># แก้ CAMERA_URL</span>
+uvicorn main:app --host 0.0.0.0 --port 8000</pre>
+      <p class="note">เปิด Dashboard ที่ <code>http://localhost:8000/dashboard</code> และดู API ที่ <code>/docs</code></p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">3. Arduino</h3>
+      <p class="prose">ติดตั้งบอร์ด <b>Arduino UNO R4 Boards</b> และ Library <code>PubSubClient</code>, <code>ArduinoJson</code>, <code>LiquidCrystal I2C</code> แก้ <code>WIFI_SSID</code>, <code>WIFI_PASS</code>, <code>MQTT_HOST</code> ในไฟล์ <code>.ino</code> แล้ว Upload สำหรับบอร์ดช่องจอดให้แก้ <code>SLOT_ID</code> ให้ไม่ซ้ำกันทุกบอร์ด</p>
+      <h3>ทดสอบโดยไม่มีฮาร์ดแวร์</h3>
+<pre class="cmd">python tools/simulator.py
+&gt; g        <span class="c"># รถมาที่ประตู</span>
+&gt; p 1 1    <span class="c"># ช่อง 1 มีรถ</span>
+&gt; p 1 0    <span class="c"># ช่อง 1 ว่าง</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Source Code ============ -->
+<section id="code">
+  <div class="code-head">
+    <div>
+      <h2>Source Code</h2>
+      <p class="sec-sub" style="margin:0">กดชื่อไฟล์เพื่อเปิดดูโค้ด · ทั้งหมด 17 ไฟล์ 1,767 บรรทัด</p>
+    </div>
+    <div class="actions" style="display:flex;gap:10px;flex-wrap:wrap">
+      <a class="btn primary" href="https://github.com/pktkh35/physical-computing-project-2026/archive/refs/heads/main.zip">ดาวน์โหลด .zip</a>
+      <a class="btn" style="border:2px solid var(--rule)" href="https://github.com/pktkh35/physical-computing-project-2026">ดูบน GitHub</a>
+    </div>
+  </div>
+  <div class="folder"><h3>arduino/</h3>
+<details class="file"><summary><span class="fname">smart_parking_gate.ino</span><span class="fdesc">บอร์ดประตู: Ultrasonic, Servo, LCD</span><span class="flines">189 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-cpp">/*
+ * =====================================================
+ *  Smart Parking - GATE board (Arduino UNO R4 WiFi)
+ * =====================================================
+ *  Ultrasonic + Servo + LCD 16x2 (I2C)
+ *  Pins: TRIG D2, ECHO D3, Servo D9, LCD SDA A4 / SCL A5
+ *
+ *  Library: PubSubClient, ArduinoJson v7, Servo (built-in), LiquidCrystal I2C
+ *  Board: &quot;Arduino UNO R4 WiFi&quot;
+ *  LCD text (free slots, plate) comes from server via parking/lcd/set
+ */
+
+#include &lt;WiFiS3.h&gt;
+#include &lt;PubSubClient.h&gt;
+#include &lt;ArduinoJson.h&gt;
+#include &lt;Servo.h&gt;
+#include &lt;Wire.h&gt;
+#include &lt;LiquidCrystal_I2C.h&gt;
+
+// ================== ตั้งค่า ==================
+const char* WIFI_SSID   = &quot;YOUR_WIFI_SSID&quot;;
+const char* WIFI_PASS   = &quot;YOUR_WIFI_PASSWORD&quot;;
+const char* MQTT_HOST   = &quot;mqtt-dashboard.com&quot;;   // IP เครื่องที่รัน Mosquitto
+const int   MQTT_PORT   = 1883;
+const char* MQTT_USER   = &quot;&quot;;               // เว้นว่างถ้าไม่ใช้
+const char* MQTT_PASS   = &quot;&quot;;
+const char* CLIENT_ID   = &quot;parking-gate&quot;;   // ต้องไม่ซ้ำกับบอร์ดอื่น
+
+const char* T_GATE_DETECT = &quot;parking/gate/detect&quot;;
+const char* T_GATE_OPEN   = &quot;parking/gate/open&quot;;
+const char* T_LCD_SET     = &quot;parking/lcd/set&quot;;
+
+const int GATE_TRIG = 2;
+const int GATE_ECHO = 3;
+const int SERVO_PIN = 9;
+const int GATE_DETECT_CM = 15;    // ใกล้กว่านี้ = มีรถ
+const int SERVO_CLOSED   = 0;
+const int SERVO_OPEN     = 90;
+
+const unsigned long CLOSE_DELAY_MS = 5000;  // ไม่มีรถนานเท่านี้ถึงปิดไม้กั้น
+const unsigned long DEBOUNCE_MS = 1000;  // ค่าต้องนิ่งนานเท่านี้ถึงจะนับว่าเปลี่ยน
+
+// =============================================
+WiFiClient netClient;
+PubSubClient mqtt(netClient);
+Servo gateServo;
+LiquidCrystal_I2C lcd(0x27, 16, 2);   // ถ้าจอไม่ขึ้นลอง 0x3F
+
+bool gateCarPresent = false;
+bool gateRawLast = false;
+unsigned long gateRawSince = 0;
+bool gateIsOpen = false;
+unsigned long gateOpenUntil = 0;
+unsigned long gateClearSince = 0;  // 0 = ยังมีรถ/ยังไม่เริ่มนับ
+
+long readDistanceCm(int trig, int echo) {
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+  long dur = pulseIn(echo, HIGH, 25000);   // timeout ~4 m
+  if (dur == 0) return 999;
+  return dur * 0.0343 / 2;
+}
+
+void lcdShow(const char* l1, const char* l2) {
+  lcd.clear();
+  lcd.setCursor(0, 0); lcd.print(l1);
+  lcd.setCursor(0, 1); lcd.print(l2);
+}
+
+void openGate(unsigned long durationMs) {
+  gateServo.write(SERVO_OPEN);
+  gateIsOpen = true;
+  gateOpenUntil = millis() + durationMs;
+  Serial.println(&quot;[GATE] open&quot;);
+}
+
+void closeGateIfDone() {
+  if (!gateIsOpen || millis() &lt; gateOpenUntil) return;
+  // ปิดเมื่อไม่มีรถหน้าประตูต่อเนื่อง CLOSE_DELAY_MS
+  if (readDistanceCm(GATE_TRIG, GATE_ECHO) &lt; GATE_DETECT_CM) {
+    gateClearSince = 0;
+    return;
+  }
+  if (gateClearSince == 0) gateClearSince = millis();
+  if (millis() - gateClearSince &lt; CLOSE_DELAY_MS) return;
+  gateServo.write(SERVO_CLOSED);
+  gateIsOpen = false;
+  gateClearSince = 0;
+  Serial.println(&quot;[GATE] closed&quot;);
+}
+
+void publishGateDetect(long cm) {
+  JsonDocument doc;
+  doc[&quot;car&quot;] = true;
+  doc[&quot;distance&quot;] = cm;
+  char buf[64];
+  serializeJson(doc, buf);
+  mqtt.publish(T_GATE_DETECT, buf);
+  Serial.print(&quot;[MQTT] -&gt; &quot;); Serial.print(T_GATE_DETECT); Serial.print(&quot; &quot;); Serial.println(buf);
+}
+
+void onMessage(char* topic, byte* payload, unsigned int len) {
+  JsonDocument doc;
+  if (deserializeJson(doc, payload, len)) {
+    Serial.println(&quot;[MQTT] JSON ผิดรูปแบบ&quot;);
+    return;
+  }
+  Serial.print(&quot;[MQTT] &lt;- &quot;); Serial.println(topic);
+
+  if (strcmp(topic, T_GATE_OPEN) == 0) {
+    openGate(doc[&quot;duration&quot;] | 5000);
+  } else if (strcmp(topic, T_LCD_SET) == 0) {
+    lcdShow(doc[&quot;line1&quot;] | &quot;&quot;, doc[&quot;line2&quot;] | &quot;&quot;);
+  }
+}
+
+void connectWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  lcdShow(&quot;Connecting WiFi&quot;, WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(&quot;.&quot;);
+  }
+  Serial.print(&quot;\n[WiFi] IP: &quot;); Serial.println(WiFi.localIP());
+}
+
+void connectMQTT() {
+  while (!mqtt.connected()) {
+    lcdShow(&quot;Connecting MQTT&quot;, MQTT_HOST);
+    bool ok = strlen(MQTT_USER)
+                ? mqtt.connect(CLIENT_ID, MQTT_USER, MQTT_PASS)
+                : mqtt.connect(CLIENT_ID);
+    if (ok) {
+      mqtt.subscribe(T_GATE_OPEN, 1);
+      mqtt.subscribe(T_LCD_SET, 1);
+      Serial.println(&quot;[MQTT] connected&quot;);
+      lcdShow(&quot;Smart Parking&quot;, &quot;Ready&quot;);
+    } else {
+      Serial.print(&quot;[MQTT] fail rc=&quot;); Serial.println(mqtt.state());
+      delay(2000);
+    }
+  }
+}
+
+void checkGate() {
+  long cm = readDistanceCm(GATE_TRIG, GATE_ECHO);
+  bool raw = cm &lt; GATE_DETECT_CM;
+  if (raw != gateRawLast) { gateRawLast = raw; gateRawSince = millis(); }
+  if (millis() - gateRawSince &lt; DEBOUNCE_MS) return;
+
+  if (raw &amp;&amp; !gateCarPresent &amp;&amp; !gateIsOpen) {
+    gateCarPresent = true;
+    publishGateDetect(cm);       // แจ้ง server ครั้งเดียวต่อรถหนึ่งคัน
+  } else if (!raw &amp;&amp; gateCarPresent) {
+    gateCarPresent = false;       // รถไปแล้ว พร้อมรับคันถัดไป
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  Wire.begin();
+  lcd.init();
+  lcd.backlight();
+
+  pinMode(GATE_TRIG, OUTPUT);
+  pinMode(GATE_ECHO, INPUT);
+  gateServo.attach(SERVO_PIN);
+  gateServo.write(SERVO_CLOSED);
+
+  connectWiFi();
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setCallback(onMessage);
+  mqtt.setBufferSize(512);
+  connectMQTT();
+}
+
+void loop() {
+  if (WiFi.status() != WL_CONNECTED) connectWiFi();
+  if (!mqtt.connected()) connectMQTT();
+  mqtt.loop();
+
+  checkGate();
+  closeGateIfDone();
+}
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">smart_parking_slot.ino</span><span class="fdesc">บอร์ดช่องจอด: Ultrasonic, LED (แก้ SLOT_ID ต่อบอร์ด)</span><span class="flines">146 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-cpp">/*
+ * =====================================================
+ *  Smart Parking - SLOT board (Arduino UNO R4 WiFi)
+ * =====================================================
+ *  One board per parking slot. Ultrasonic + LED green/red.
+ *  Pins: TRIG D4, ECHO D5, LED green D6, LED red D7 (220 ohm each)
+ *
+ *  ก่อน Upload ให้แก้ SLOT_ID (1, 2, 3 ...) ให้ตรงกับ slot_id ใน MySQL
+ *  CLIENT_ID ถูกสร้างจาก SLOT_ID อัตโนมัติ ไม่ซ้ำกันระหว่างบอร์ด
+ *
+ *  Library: PubSubClient, ArduinoJson v7
+ *  Board: &quot;Arduino UNO R4 WiFi&quot;
+ */
+
+#include &lt;WiFiS3.h&gt;
+#include &lt;PubSubClient.h&gt;
+#include &lt;ArduinoJson.h&gt;
+
+// ================== ตั้งค่า ==================
+const int   SLOT_ID     = 1;                // &lt;-- แก้ต่อบอร์ด
+const char* WIFI_SSID   = &quot;YOUR_WIFI_SSID&quot;;
+const char* WIFI_PASS   = &quot;YOUR_WIFI_PASSWORD&quot;;
+const char* MQTT_HOST   = &quot;mqtt-dashboard.com&quot;;   // IP เครื่องที่รัน Mosquitto
+const int   MQTT_PORT   = 1883;
+const char* MQTT_USER   = &quot;&quot;;               // เว้นว่างถ้าไม่ใช้
+const char* MQTT_PASS   = &quot;&quot;;
+
+const char* T_SLOT_STATUS = &quot;parking/slot/status&quot;;
+const char* T_LED_SET     = &quot;parking/led/set&quot;;
+
+const int TRIG      = 4;
+const int ECHO      = 5;
+const int PIN_LED_GREEN = 6;
+const int PIN_LED_RED   = 7;
+const int SLOT_DETECT_CM = 10;
+
+const unsigned long DEBOUNCE_MS = 1000;  // ค่าต้องนิ่งนานเท่านี้ถึงจะนับว่าเปลี่ยน
+
+// =============================================
+WiFiClient netClient;
+PubSubClient mqtt(netClient);
+char clientId[16];
+
+bool occupied = false;
+bool rawLast = false;
+unsigned long rawSince = 0;
+
+long readDistanceCm() {
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+  long dur = pulseIn(ECHO, HIGH, 25000);   // timeout ~4 m
+  if (dur == 0) return 999;
+  return dur * 0.0343 / 2;
+}
+
+void setLed(const char* color) {
+  digitalWrite(PIN_LED_GREEN, strcmp(color, &quot;green&quot;) == 0);
+  digitalWrite(PIN_LED_RED,   strcmp(color, &quot;red&quot;)   == 0);
+}
+
+void publishSlot() {
+  JsonDocument doc;
+  doc[&quot;slot&quot;] = SLOT_ID;
+  doc[&quot;occupied&quot;] = occupied;
+  char buf[64];
+  serializeJson(doc, buf);
+  mqtt.publish(T_SLOT_STATUS, buf);
+  Serial.print(&quot;[MQTT] -&gt; &quot;); Serial.print(T_SLOT_STATUS); Serial.print(&quot; &quot;); Serial.println(buf);
+}
+
+void onMessage(char* topic, byte* payload, unsigned int len) {
+  JsonDocument doc;
+  if (deserializeJson(doc, payload, len)) {
+    Serial.println(&quot;[MQTT] JSON ผิดรูปแบบ&quot;);
+    return;
+  }
+  // topic เดียวกันถูกส่งถึงทุกบอร์ด ทำเฉพาะของช่องตัวเอง
+  if (strcmp(topic, T_LED_SET) == 0 &amp;&amp; (doc[&quot;slot&quot;] | 0) == SLOT_ID) {
+    setLed(doc[&quot;color&quot;] | &quot;off&quot;);
+  }
+}
+
+void connectWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(&quot;.&quot;);
+  }
+  Serial.print(&quot;\n[WiFi] IP: &quot;); Serial.println(WiFi.localIP());
+}
+
+void connectMQTT() {
+  while (!mqtt.connected()) {
+    bool ok = strlen(MQTT_USER)
+                ? mqtt.connect(clientId, MQTT_USER, MQTT_PASS)
+                : mqtt.connect(clientId);
+    if (ok) {
+      mqtt.subscribe(T_LED_SET, 1);
+      Serial.println(&quot;[MQTT] connected&quot;);
+      publishSlot();   // ให้ server sync สถานะ
+    } else {
+      Serial.print(&quot;[MQTT] fail rc=&quot;); Serial.println(mqtt.state());
+      delay(2000);
+    }
+  }
+}
+
+void checkSlot() {
+  bool raw = readDistanceCm() &lt; SLOT_DETECT_CM;
+  if (raw != rawLast) { rawLast = raw; rawSince = millis(); }
+  if (millis() - rawSince &gt;= DEBOUNCE_MS &amp;&amp; raw != occupied) {
+    occupied = raw;
+    setLed(raw ? &quot;red&quot; : &quot;green&quot;);   // ตอบสนองทันที server จะยืนยันซ้ำ
+    publishSlot();
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  snprintf(clientId, sizeof(clientId), &quot;parking-slot%d&quot;, SLOT_ID);
+
+  pinMode(TRIG, OUTPUT);
+  pinMode(ECHO, INPUT);
+  pinMode(PIN_LED_GREEN, OUTPUT);
+  pinMode(PIN_LED_RED, OUTPUT);
+  setLed(&quot;green&quot;);
+
+  connectWiFi();
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setCallback(onMessage);
+  mqtt.setBufferSize(512);
+  connectMQTT();
+}
+
+void loop() {
+  if (WiFi.status() != WL_CONNECTED) connectWiFi();
+  if (!mqtt.connected()) connectMQTT();
+  mqtt.loop();
+
+  checkSlot();
+  delay(30);
+}
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">smart_parking_uno_serial.ino</span><span class="fdesc">สำหรับ UNO/Mega ไม่มี WiFi ส่งผ่าน USB Serial</span><span class="flines">173 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-cpp">/*
+ * =====================================================
+ *  Smart Parking - Arduino UNO / Mega (ไม่มี WiFi)
+ * =====================================================
+ *  ใช้เมื่อบอร์ดต่อเน็ตเองไม่ได้: ส่งข้อมูลทาง USB Serial
+ *  แล้วให้ tools/serial_bridge.py แปลงเป็น MQTT ต่อ
+ *
+ *  โปรโตคอล Serial (9600 baud, 1 บรรทัด = 1 คำสั่ง)
+ *   Arduino -&gt; PC : GATE,&lt;cm&gt;            มีรถที่ประตู
+ *                   SLOT,&lt;n&gt;,&lt;0|1&gt;       สถานะช่องจอด
+ *   PC -&gt; Arduino : OPEN,&lt;ms&gt;            เปิดไม้กั้น
+ *                   LCD,&lt;line1&gt;|&lt;line2&gt;  แสดงข้อความ
+ *                   LED,&lt;n&gt;,&lt;green|red|off&gt;
+ *
+ *  Library: Servo (มากับ IDE), LiquidCrystal I2C (Frank de Brabander)
+ *  UNO มีขาจำกัด -&gt; ตั้งไว้ 1 ช่องจอด (ใช้ Mega ได้มากกว่า)
+ *  LCD I2C ใช้ขา A4 (SDA), A5 (SCL)
+ */
+
+#include &lt;Servo.h&gt;
+#include &lt;Wire.h&gt;
+#include &lt;LiquidCrystal_I2C.h&gt;
+
+// ---------- Front gate ----------
+const int GATE_TRIG = 2;
+const int GATE_ECHO = 3;
+const int SERVO_PIN = 9;
+const int GATE_DETECT_CM = 15;
+const int SERVO_CLOSED = 0;
+const int SERVO_OPEN = 90;
+
+// ---------- Slots ----------
+const int NUM_SLOTS = 1;
+const int SLOT_TRIG[NUM_SLOTS]  = {4};
+const int SLOT_ECHO[NUM_SLOTS]  = {5};
+const int SLOT_GREEN[NUM_SLOTS] = {6};
+const int SLOT_RED[NUM_SLOTS]   = {7};
+const int SLOT_DETECT_CM = 10;
+
+const unsigned long CLOSE_DELAY_MS = 5000;  // ไม่มีรถนานเท่านี้ถึงปิดไม้กั้น
+const unsigned long DEBOUNCE_MS = 1000;
+
+Servo gateServo;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+bool gateCarPresent = false, gateRawLast = false, gateIsOpen = false;
+unsigned long gateRawSince = 0, gateOpenUntil = 0, gateClearSince = 0;
+bool slotOccupied[NUM_SLOTS], slotRawLast[NUM_SLOTS];
+unsigned long slotRawSince[NUM_SLOTS];
+String rxLine;
+
+long readDistanceCm(int trig, int echo) {
+  digitalWrite(trig, LOW);  delayMicroseconds(2);
+  digitalWrite(trig, HIGH); delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+  long dur = pulseIn(echo, HIGH, 25000);
+  return dur == 0 ? 999 : dur * 0.0343 / 2;
+}
+
+void lcdShow(const String&amp; l1, const String&amp; l2) {
+  lcd.clear();
+  lcd.setCursor(0, 0); lcd.print(l1.substring(0, 16));
+  lcd.setCursor(0, 1); lcd.print(l2.substring(0, 16));
+}
+
+void setLed(int idx, const String&amp; color) {
+  if (idx &lt; 0 || idx &gt;= NUM_SLOTS) return;
+  digitalWrite(SLOT_GREEN[idx], color == &quot;green&quot;);
+  digitalWrite(SLOT_RED[idx],   color == &quot;red&quot;);
+}
+
+void openGate(unsigned long ms) {
+  gateServo.write(SERVO_OPEN);
+  gateIsOpen = true;
+  gateOpenUntil = millis() + ms;
+}
+
+void closeGateIfDone() {
+  if (!gateIsOpen || millis() &lt; gateOpenUntil) return;
+  // ปิดเมื่อไม่มีรถหน้าประตูต่อเนื่อง CLOSE_DELAY_MS
+  if (readDistanceCm(GATE_TRIG, GATE_ECHO) &lt; GATE_DETECT_CM) {
+    gateClearSince = 0;
+    return;
+  }
+  if (gateClearSince == 0) gateClearSince = millis();
+  if (millis() - gateClearSince &lt; CLOSE_DELAY_MS) return;
+  gateServo.write(SERVO_CLOSED);
+  gateIsOpen = false;
+  gateClearSince = 0;
+}
+
+void sendSlot(int i) {
+  Serial.print(&quot;SLOT,&quot;); Serial.print(i + 1); Serial.print(&quot;,&quot;);
+  Serial.println(slotOccupied[i] ? 1 : 0);
+}
+
+// ---------- รับคำสั่งจาก PC ----------
+void handleCommand(String line) {
+  line.trim();
+  int c1 = line.indexOf(&#x27;,&#x27;);
+  if (c1 &lt; 0) return;
+  String cmd = line.substring(0, c1);
+  String arg = line.substring(c1 + 1);
+
+  if (cmd == &quot;OPEN&quot;) {
+    openGate(arg.toInt() &gt; 0 ? arg.toInt() : 5000);
+  } else if (cmd == &quot;LCD&quot;) {
+    int bar = arg.indexOf(&#x27;|&#x27;);
+    if (bar &lt; 0) lcdShow(arg, &quot;&quot;);
+    else lcdShow(arg.substring(0, bar), arg.substring(bar + 1));
+  } else if (cmd == &quot;LED&quot;) {
+    int c2 = arg.indexOf(&#x27;,&#x27;);
+    if (c2 &gt; 0) setLed(arg.substring(0, c2).toInt() - 1, arg.substring(c2 + 1));
+  } else if (cmd == &quot;SYNC&quot;) {
+    for (int i = 0; i &lt; NUM_SLOTS; i++) sendSlot(i);
+  }
+}
+
+void readSerial() {
+  while (Serial.available()) {
+    char ch = Serial.read();
+    if (ch == &#x27;\n&#x27;) { handleCommand(rxLine); rxLine = &quot;&quot;; }
+    else if (ch != &#x27;\r&#x27; &amp;&amp; rxLine.length() &lt; 80) rxLine += ch;
+  }
+}
+
+void checkGate() {
+  long cm = readDistanceCm(GATE_TRIG, GATE_ECHO);
+  bool raw = cm &lt; GATE_DETECT_CM;
+  if (raw != gateRawLast) { gateRawLast = raw; gateRawSince = millis(); }
+  if (millis() - gateRawSince &lt; DEBOUNCE_MS) return;
+  if (raw &amp;&amp; !gateCarPresent &amp;&amp; !gateIsOpen) {
+    gateCarPresent = true;
+    Serial.print(&quot;GATE,&quot;); Serial.println(cm);
+  } else if (!raw &amp;&amp; gateCarPresent) {
+    gateCarPresent = false;
+  }
+}
+
+void checkSlots() {
+  for (int i = 0; i &lt; NUM_SLOTS; i++) {
+    bool raw = readDistanceCm(SLOT_TRIG[i], SLOT_ECHO[i]) &lt; SLOT_DETECT_CM;
+    if (raw != slotRawLast[i]) { slotRawLast[i] = raw; slotRawSince[i] = millis(); }
+    if (millis() - slotRawSince[i] &gt;= DEBOUNCE_MS &amp;&amp; raw != slotOccupied[i]) {
+      slotOccupied[i] = raw;
+      setLed(i, raw ? &quot;red&quot; : &quot;green&quot;);
+      sendSlot(i);
+    }
+    delay(30);
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  lcd.init(); lcd.backlight();
+  pinMode(GATE_TRIG, OUTPUT); pinMode(GATE_ECHO, INPUT);
+  gateServo.attach(SERVO_PIN); gateServo.write(SERVO_CLOSED);
+  for (int i = 0; i &lt; NUM_SLOTS; i++) {
+    pinMode(SLOT_TRIG[i], OUTPUT); pinMode(SLOT_ECHO[i], INPUT);
+    pinMode(SLOT_GREEN[i], OUTPUT); pinMode(SLOT_RED[i], OUTPUT);
+    slotOccupied[i] = slotRawLast[i] = false;
+    slotRawSince[i] = 0;
+    setLed(i, &quot;green&quot;);
+  }
+  lcdShow(&quot;Smart Parking&quot;, &quot;Waiting PC...&quot;);
+}
+
+void loop() {
+  readSerial();
+  checkGate();
+  checkSlots();
+  closeGateIfDone();
+}
+</code></pre></div></details>
+</div>
+<div class="folder"><h3>server/</h3>
+<details class="file"><summary><span class="fname">main.py</span><span class="fdesc">จุดเริ่มต้น server, logic ประตูและช่องจอด, REST API</span><span class="flines">153 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;
+Smart Parking Server
+  - รับข้อมูลจาก Arduino ผ่าน MQTT (Gate / Park)
+  - อ่านทะเบียนด้วย YOLO + OCR
+  - บันทึก MySQL
+  - สั่ง Arduino (Set LCD / Open Gate / Set LED)
+  - REST API ดูสถานะช่องจอด/ประวัติรถที่เข้าลาน (http://localhost:8000/docs)
+  - หน้า Dashboard (http://localhost:8000/dashboard)
+  - สั่งงานด้วยมือผ่าน MQTT topic parking/cmd/#
+
+รัน:  uvicorn main:app --host 0.0.0.0 --port 8000
+&quot;&quot;&quot;
+import logging
+import re
+import threading
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+import config as C
+import db
+from dashboard import router as dashboard_router
+from mqtt_client import ParkingMQTT
+from plate_reader import PlateReader
+
+logging.basicConfig(level=logging.INFO,
+                    format=&quot;%(asctime)s [%(name)s] %(message)s&quot;)
+log = logging.getLogger(&quot;server&quot;)
+
+reader: PlateReader | None = None
+mqttc: ParkingMQTT | None = None
+_gate_lock = threading.Lock()
+_last_open = 0.0
+
+
+def plate_to_ascii(plate: str) -&gt; str:
+    &quot;&quot;&quot;LCD แสดงตัวอักษรไทยไม่ได้ -&gt; แสดงเฉพาะตัวเลข เช่น 1กข1234 -&gt; 1-1234&quot;&quot;&quot;
+    nums = re.findall(r&quot;\d+&quot;, plate)
+    return &quot;-&quot;.join(nums) if nums else &quot;UNKNOWN&quot;
+
+
+# ==================== Receive: Gate ====================
+def handle_gate(payload: dict):
+    &quot;&quot;&quot;Arduino ตรวจเจอรถที่ประตู -&gt; ประมวลผลใน thread แยก ไม่ให้ MQTT ค้าง&quot;&quot;&quot;
+    if not payload.get(&quot;car&quot;, True):
+        return
+    if not _gate_lock.acquire(blocking=False):
+        log.info(&quot;กำลังประมวลผลคันก่อนอยู่ ข้าม&quot;)
+        return
+    threading.Thread(target=_process_gate, daemon=True).start()
+
+
+def _lcd_free():
+    mqttc.set_lcd(&quot;Free slot&quot;, str(db.count_free_slots()))
+
+
+def _process_gate():
+    global _last_open
+    try:
+        if time.time() - _last_open &lt; C.GATE_COOLDOWN:
+            log.info(&quot;อยู่ในช่วง cooldown หลังเปิดประตู ข้าม&quot;)
+            return
+
+        plate, _ = reader.read()
+
+        if not plate:
+            return
+
+        # รถคันนี้อยู่ในลานแล้ว -&gt; ถือว่าขาออก
+        open_log = db.find_open_log(plate)
+        if open_log:
+            db.delete_log(open_log[&quot;id&quot;])
+            _lcd_free()
+            mqttc.open_gate()
+            _last_open = time.time()
+            return
+
+        free = db.count_free_slots()
+        if free &lt;= 0:
+            return
+
+        db.insert_entry(plate)
+        _lcd_free()
+        mqttc.open_gate()
+        _last_open = time.time()
+    except Exception:
+        log.exception(&quot;ประมวลผลรถที่ประตูไม่สำเร็จ&quot;)
+    finally:
+        _gate_lock.release()
+
+
+# ==================== Receive: Park ====================
+def handle_park(payload: dict):
+    slot = int(payload[&quot;slot&quot;])
+    occupied = bool(payload[&quot;occupied&quot;])
+    db.update_slot(slot, occupied)
+    mqttc.set_led(slot, &quot;red&quot; if occupied else &quot;green&quot;)
+    _lcd_free()
+
+
+# ==================== Receive: Command (แทน REST เดิม) ====================
+def handle_cmd(cmd: str, payload: dict):
+    &quot;&quot;&quot;parking/cmd/&lt;cmd&gt; : gate/open, gate/scan, lcd, led&quot;&quot;&quot;
+    if cmd == &quot;gate/open&quot;:
+        mqttc.open_gate(int(payload.get(&quot;duration&quot;, 5000)))
+    elif cmd == &quot;gate/scan&quot;:
+        handle_gate({&quot;car&quot;: True})   # ทดสอบกล้อง + OCR
+    elif cmd == &quot;lcd&quot;:
+        mqttc.set_lcd(str(payload.get(&quot;line1&quot;, &quot;&quot;)), str(payload.get(&quot;line2&quot;, &quot;&quot;)))
+    elif cmd == &quot;led&quot;:
+        color = payload.get(&quot;color&quot;)
+        if color not in (&quot;green&quot;, &quot;red&quot;, &quot;off&quot;):
+            log.warning(&quot;led color ต้องเป็น green, red หรือ off: %s&quot;, color)
+            return
+        mqttc.set_led(int(payload[&quot;slot&quot;]), color)
+    else:
+        log.warning(&quot;ไม่รู้จักคำสั่ง: %s&quot;, cmd)
+
+
+# ==================== FastAPI ====================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global reader, mqttc
+    reader = PlateReader()
+    mqttc = ParkingMQTT(on_gate=handle_gate, on_park=handle_park, on_cmd=handle_cmd)
+    mqttc.start()
+    # sync สถานะ LED ตามฐานข้อมูลตอนเริ่มระบบ
+    time.sleep(1)
+    for s in db.list_slots():
+        mqttc.set_led(s[&quot;slot_id&quot;], &quot;red&quot; if s[&quot;is_occupied&quot;] else &quot;green&quot;)
+    _lcd_free()
+    yield
+    mqttc.stop()
+
+
+app = FastAPI(title=&quot;Smart Parking API&quot;, lifespan=lifespan)
+app.include_router(dashboard_router)   # หน้าเว็บ /dashboard + /api/dashboard
+
+
+@app.get(&quot;/&quot;)
+def root():
+    return {&quot;status&quot;: &quot;ok&quot;, &quot;free_slots&quot;: db.count_free_slots()}
+
+
+@app.get(&quot;/slots&quot;)
+def get_slots():
+    return db.list_slots()
+
+
+@app.get(&quot;/logs&quot;)
+def get_logs(limit: int = 50):
+    return db.list_logs(limit)
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">plate_reader.py</span><span class="fdesc">กล้อง → YOLO หาป้าย → OCR อ่านทะเบียน</span><span class="flines">109 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;จับภาพจาก IP Camera -&gt; YOLO หาป้าย -&gt; OCR อ่านทะเบียน&quot;&quot;&quot;
+import logging
+import os
+import re
+import time
+
+import cv2
+
+from config import CAMERA_URL, OCR_LANGS, OCR_MIN_CONF, YOLO_CONF, YOLO_MODEL
+
+log = logging.getLogger(&quot;plate&quot;)
+
+# ตัวอักษรที่ยอมรับในป้ายทะเบียนไทย
+_PLATE_CHARS = re.compile(r&quot;[^0-9ก-ฮ]&quot;)
+
+
+class PlateReader:
+    def __init__(self):
+        self.yolo = None
+        if os.path.exists(YOLO_MODEL):
+            from ultralytics import YOLO
+            self.yolo = YOLO(YOLO_MODEL)
+            log.info(&quot;โหลดโมเดล YOLO: %s&quot;, YOLO_MODEL)
+        else:
+            log.warning(&quot;ไม่พบโมเดล %s -&gt; จะ OCR ทั้งภาพแทน&quot;, YOLO_MODEL)
+
+        import easyocr
+        log.info(&quot;กำลังโหลด EasyOCR %s (ครั้งแรกจะดาวน์โหลดโมเดล)...&quot;, OCR_LANGS)
+        self.ocr = easyocr.Reader(OCR_LANGS, gpu=False)
+
+    # ---------- กล้อง ----------
+    @staticmethod
+    def capture(retries: int = 3):
+        for i in range(retries):
+            cap = cv2.VideoCapture(CAMERA_URL)
+            # อ่านทิ้งสัก 2-3 เฟรมเพื่อให้ได้ภาพล่าสุด (RTSP buffer)
+            frame = None
+            for _ in range(3):
+                ok, f = cap.read()
+                if ok:
+                    frame = f
+            cap.release()
+            if frame is not None:
+                return frame
+            log.warning(&quot;อ่านภาพจากกล้องไม่ได้ (ครั้งที่ %d)&quot;, i + 1)
+            time.sleep(0.5)
+        return None
+
+    # ---------- YOLO ----------
+    def detect_plates(self, frame):
+        &quot;&quot;&quot;คืนรายการภาพป้ายที่ crop แล้ว เรียงตามความมั่นใจ&quot;&quot;&quot;
+        if self.yolo is None:
+            return [(frame, 1.0)]
+        res = self.yolo(frame, conf=YOLO_CONF, verbose=False)[0]
+        crops = []
+        for box in res.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+            crop = frame[max(0, y1):y2, max(0, x1):x2]
+            if crop.size:
+                crops.append((crop, float(box.conf[0])))
+        crops.sort(key=lambda c: c[1], reverse=True)
+        return crops
+
+    # ---------- OCR ----------
+    @staticmethod
+    def _preprocess(img):
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        h = gray.shape[0]
+        if h &lt; 120:  # ขยายภาพป้ายเล็ก ๆ ให้อ่านง่ายขึ้น
+            scale = 120 / max(h, 1)
+            gray = cv2.resize(gray, None, fx=scale, fy=scale,
+                              interpolation=cv2.INTER_CUBIC)
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)
+        return gray
+
+    def ocr_plate(self, img):
+        results = self.ocr.readtext(self._preprocess(img))
+        # เรียงจากบนลงล่าง ซ้ายไปขวา
+        results.sort(key=lambda r: (r[0][0][1] // 20, r[0][0][0]))
+        texts, confs = [], []
+        for _, text, conf in results:
+            if conf &lt; OCR_MIN_CONF:
+                continue
+            clean = _PLATE_CHARS.sub(&quot;&quot;, text)
+            # บรรทัดชื่อจังหวัดมักเป็นตัวอักษรไทยล้วนยาว ๆ -&gt; ข้าม
+            if len(clean) &gt; 4 and not any(c.isdigit() for c in clean):
+                continue
+            if clean:
+                texts.append(clean)
+                confs.append(conf)
+        if not texts:
+            return &quot;&quot;, 0.0
+        return &quot;&quot;.join(texts), sum(confs) / len(confs)
+
+    # ---------- รวมทุกขั้นตอน ----------
+    def read(self):
+        &quot;&quot;&quot;คืน (plate, confidence) หรือ (&quot;&quot;, 0) ถ้าอ่านไม่ได้&quot;&quot;&quot;
+        frame = self.capture()
+        if frame is None:
+            return &quot;&quot;, 0.0
+
+        best = (&quot;&quot;, 0.0)
+        for crop, det_conf in self.detect_plates(frame)[:3]:
+            plate, ocr_conf = self.ocr_plate(crop)
+            score = ocr_conf * det_conf
+            if plate and score &gt; best[1]:
+                best = (plate, score)
+        log.info(&quot;อ่านทะเบียนได้: %r (conf=%.2f)&quot;, best[0], best[1])
+        return best
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">mqtt_client.py</span><span class="fdesc">ส่ง/รับข้อความ MQTT</span><span class="flines">69 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;MQTT client ฝั่ง Server: Send (Set LCD / Open Gate / Set LED) และ Receive (Gate / Park)&quot;&quot;&quot;
+import json
+import logging
+
+import paho.mqtt.client as mqtt
+
+import config as C
+
+log = logging.getLogger(&quot;mqtt&quot;)
+
+
+class ParkingMQTT:
+    def __init__(self, on_gate, on_park, on_cmd):
+        self.on_gate = on_gate   # callback(payload: dict)
+        self.on_park = on_park   # callback(payload: dict)
+        self.on_cmd = on_cmd     # callback(cmd: str, payload: dict)  เช่น &quot;gate/open&quot;
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
+                                  client_id=&quot;parking-server&quot;)
+        if C.MQTT_USER:
+            self.client.username_pw_set(C.MQTT_USER, C.MQTT_PASS)
+        self.client.on_connect = self._on_connect
+        self.client.on_message = self._on_message
+
+    def start(self):
+        self.client.connect(C.MQTT_HOST, C.MQTT_PORT, keepalive=60)
+        self.client.loop_start()
+
+    def stop(self):
+        self.client.loop_stop()
+        self.client.disconnect()
+
+    # ---------- Receive ----------
+    def _on_connect(self, client, userdata, flags, reason_code, properties):
+        log.info(&quot;เชื่อมต่อ MQTT broker แล้ว (%s)&quot;, reason_code)
+        client.subscribe([(C.TOPIC_GATE_DETECT, 1), (C.TOPIC_SLOT_STATUS, 1),
+                          (C.TOPIC_CMD, 1)])
+
+    def _on_message(self, client, userdata, msg):
+        try:
+            payload = json.loads(msg.payload.decode() or &quot;{}&quot;)
+        except json.JSONDecodeError:
+            log.warning(&quot;payload ไม่ใช่ JSON: %s&quot;, msg.payload)
+            return
+        log.info(&quot;&lt;- %s %s&quot;, msg.topic, payload)
+        try:
+            if msg.topic == C.TOPIC_GATE_DETECT:
+                self.on_gate(payload)
+            elif msg.topic == C.TOPIC_SLOT_STATUS:
+                self.on_park(payload)
+            elif msg.topic.startswith(&quot;parking/cmd/&quot;):
+                self.on_cmd(msg.topic[len(&quot;parking/cmd/&quot;):], payload)
+        except Exception:
+            log.exception(&quot;จัดการข้อความ %s ไม่สำเร็จ&quot;, msg.topic)
+
+    # ---------- Send ----------
+    def _pub(self, topic, data):
+        log.info(&quot;-&gt; %s %s&quot;, topic, data)
+        self.client.publish(topic, json.dumps(data, ensure_ascii=False), qos=1)
+
+    def set_lcd(self, line1: str, line2: str = &quot;&quot;):
+        # LCD 16x2 แสดงภาษาไทยไม่ได้ จึงส่งเป็นอังกฤษ/ตัวเลข
+        self._pub(C.TOPIC_LCD_SET, {&quot;line1&quot;: line1[:16], &quot;line2&quot;: line2[:16]})
+
+    def open_gate(self, duration_ms: int = 5000):
+        self._pub(C.TOPIC_GATE_OPEN, {&quot;action&quot;: &quot;open&quot;, &quot;duration&quot;: duration_ms})
+
+    def set_led(self, slot: int, color: str):
+        &quot;&quot;&quot;color: green | red | off&quot;&quot;&quot;
+        self._pub(C.TOPIC_LED_SET, {&quot;slot&quot;: slot, &quot;color&quot;: color})
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">db.py</span><span class="fdesc">ฟังก์ชันติดต่อ MySQL</span><span class="flines">82 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;ฟังก์ชันติดต่อฐานข้อมูล MySQL&quot;&quot;&quot;
+from contextlib import contextmanager
+
+import mysql.connector
+from mysql.connector import pooling
+
+from config import DB_CONFIG
+
+_pool = pooling.MySQLConnectionPool(pool_name=&quot;parking&quot;, pool_size=5, **DB_CONFIG)
+
+
+@contextmanager
+def get_cursor(commit: bool = False):
+    conn = _pool.get_connection()
+    cur = conn.cursor(dictionary=True)
+    try:
+        yield cur
+        if commit:
+            conn.commit()
+    except mysql.connector.Error:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ---------------- slots ----------------
+def update_slot(slot_id: int, occupied: bool):
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            &quot;&quot;&quot;INSERT INTO parking_slots (slot_id, is_occupied) VALUES (%s,%s)
+               ON DUPLICATE KEY UPDATE is_occupied=VALUES(is_occupied)&quot;&quot;&quot;,
+            (slot_id, int(occupied)),
+        )
+
+
+def list_slots():
+    with get_cursor() as cur:
+        cur.execute(&quot;SELECT * FROM parking_slots ORDER BY slot_id&quot;)
+        return cur.fetchall()
+
+
+def count_free_slots() -&gt; int:
+    with get_cursor() as cur:
+        cur.execute(&quot;SELECT COUNT(*) AS n FROM parking_slots WHERE is_occupied=0&quot;)
+        return int(cur.fetchone()[&quot;n&quot;])
+
+
+# ---------------- logs ----------------
+def find_open_log(plate: str):
+    &quot;&quot;&quot;หา log ที่รถคันนี้เข้าแล้ว (ถ้ามี = ยังอยู่ในลาน)&quot;&quot;&quot;
+    with get_cursor() as cur:
+        cur.execute(
+            &quot;&quot;&quot;SELECT * FROM parking_logs
+               WHERE plate_number=%s
+               ORDER BY entry_time DESC LIMIT 1&quot;&quot;&quot;,
+            (plate,),
+        )
+        return cur.fetchone()
+
+
+def insert_entry(plate: str) -&gt; int:
+    with get_cursor(commit=True) as cur:
+        cur.execute(&quot;INSERT INTO parking_logs (plate_number) VALUES (%s)&quot;, (plate,))
+        log_id = cur.lastrowid
+        cur.execute(&quot;INSERT INTO entry_history (plate_number) VALUES (%s)&quot;, (plate,))
+        return log_id
+
+
+def delete_log(log_id: int):
+    &quot;&quot;&quot;รถออกแล้ว ลบ log ทิ้ง (ประวัติการเข้าอยู่ใน entry_history ไม่ถูกลบ)&quot;&quot;&quot;
+    with get_cursor(commit=True) as cur:
+        cur.execute(&quot;DELETE FROM parking_logs WHERE id=%s&quot;, (log_id,))
+
+
+def list_logs(limit: int = 50):
+    with get_cursor() as cur:
+        cur.execute(
+            &quot;SELECT * FROM entry_history ORDER BY entry_time DESC LIMIT %s&quot;, (limit,)
+        )
+        return cur.fetchall()
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">config.py</span><span class="fdesc">อ่านค่าตั้งค่าจาก .env</span><span class="flines">45 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;โหลดค่าตั้งค่าจากไฟล์ .env&quot;&quot;&quot;
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def _bool(v: str) -&gt; bool:
+    return str(v).strip().lower() in (&quot;1&quot;, &quot;true&quot;, &quot;yes&quot;, &quot;on&quot;)
+
+
+MQTT_HOST = os.getenv(&quot;MQTT_HOST&quot;, &quot;localhost&quot;)
+MQTT_PORT = int(os.getenv(&quot;MQTT_PORT&quot;, &quot;1883&quot;))
+MQTT_USER = os.getenv(&quot;MQTT_USER&quot;) or None
+MQTT_PASS = os.getenv(&quot;MQTT_PASS&quot;) or None
+
+DB_CONFIG = {
+    &quot;host&quot;: os.getenv(&quot;DB_HOST&quot;, &quot;localhost&quot;),
+    &quot;port&quot;: int(os.getenv(&quot;DB_PORT&quot;, &quot;3306&quot;)),
+    &quot;user&quot;: os.getenv(&quot;DB_USER&quot;, &quot;root&quot;),
+    &quot;password&quot;: os.getenv(&quot;DB_PASS&quot;, &quot;&quot;),
+    &quot;database&quot;: os.getenv(&quot;DB_NAME&quot;, &quot;smart_parking&quot;),
+}
+
+_cam = os.getenv(&quot;CAMERA_URL&quot;, &quot;0&quot;)
+CAMERA_URL = int(_cam) if _cam.isdigit() else _cam
+
+YOLO_MODEL = os.getenv(&quot;YOLO_MODEL&quot;, &quot;models/license_plate.pt&quot;)
+YOLO_CONF = float(os.getenv(&quot;YOLO_CONF&quot;, &quot;0.5&quot;))
+OCR_LANGS = [s.strip() for s in os.getenv(&quot;OCR_LANGS&quot;, &quot;th,en&quot;).split(&quot;,&quot;)]
+OCR_MIN_CONF = float(os.getenv(&quot;OCR_MIN_CONF&quot;, &quot;0.3&quot;))
+
+TOTAL_SLOTS = int(os.getenv(&quot;TOTAL_SLOTS&quot;, &quot;4&quot;))
+GATE_COOLDOWN = float(os.getenv(&quot;GATE_COOLDOWN&quot;, &quot;8&quot;))
+
+# ---------- MQTT Topics ----------
+# Receive (Arduino -&gt; Server)
+TOPIC_GATE_DETECT = &quot;parking/gate/detect&quot;
+TOPIC_SLOT_STATUS = &quot;parking/slot/status&quot;
+# Send (Server -&gt; Arduino)
+TOPIC_GATE_OPEN = &quot;parking/gate/open&quot;
+TOPIC_LCD_SET = &quot;parking/lcd/set&quot;
+TOPIC_LED_SET = &quot;parking/led/set&quot;
+# คำสั่งมือ: parking/cmd/gate/open, gate/scan, lcd, led (แทน REST เดิม)
+TOPIC_CMD = &quot;parking/cmd/#&quot;
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">dashboard.py</span><span class="fdesc">API ของหน้า Dashboard</span><span class="flines">123 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;
+Dashboard: หน้าเว็บแสดงสถานะลานจอดจาก MySQL
+
+ใช้ได้ 2 แบบ
+  1) รวมกับ server หลัก (main.py include_router ไว้แล้ว)
+       uvicorn main:app --host 0.0.0.0 --port 8000
+  2) รันเฉพาะ dashboard (ไม่ต้องมี MQTT / กล้อง / YOLO) เหมาะกับตอนทดสอบด้วย mock data
+       uvicorn dashboard:app --host 0.0.0.0 --port 8000
+
+แล้วเปิด http://localhost:8000/dashboard
+&quot;&quot;&quot;
+from pathlib import Path
+
+from fastapi import APIRouter, FastAPI
+from fastapi.responses import FileResponse, RedirectResponse
+
+from db import get_cursor
+
+STATIC = Path(__file__).resolve().parent / &quot;static&quot;
+
+router = APIRouter()
+
+
+def _q(sql: str, params: tuple = ()):
+    with get_cursor() as cur:
+        cur.execute(sql, params)
+        return cur.fetchall()
+
+
+@router.get(&quot;/dashboard&quot;, include_in_schema=False)
+def dashboard_page():
+    return FileResponse(STATIC / &quot;dashboard.html&quot;)
+
+
+@router.get(&quot;/api/dashboard&quot;, tags=[&quot;dashboard&quot;])
+def dashboard_data(days: int = 14):
+    &quot;&quot;&quot;ข้อมูลทั้งหมดที่หน้า dashboard ใช้ (เรียกครั้งเดียวต่อการรีเฟรช)&quot;&quot;&quot;
+    days = max(1, min(days, 90))
+
+    now = _q(&quot;SELECT NOW() AS now&quot;)[0][&quot;now&quot;]
+
+    slots = _q(&quot;SELECT slot_id, is_occupied, updated_at FROM parking_slots ORDER BY slot_id&quot;)
+
+    inside = _q(
+        &quot;&quot;&quot;SELECT plate_number, entry_time,
+                  TIMESTAMPDIFF(MINUTE, entry_time, NOW()) AS minutes
+           FROM parking_logs ORDER BY entry_time&quot;&quot;&quot;
+    )
+
+    today = _q(&quot;SELECT COUNT(*) AS n FROM entry_history WHERE entry_time &gt;= CURDATE()&quot;)[0][&quot;n&quot;]
+    # เมื่อวาน &quot;ถึงเวลาเดียวกับตอนนี้&quot; เพื่อเทียบกันได้แฟร์
+    yesterday_same_time = _q(
+        &quot;&quot;&quot;SELECT COUNT(*) AS n FROM entry_history
+           WHERE entry_time &gt;= CURDATE() - INTERVAL 1 DAY
+             AND entry_time &lt;  NOW()      - INTERVAL 1 DAY&quot;&quot;&quot;
+    )[0][&quot;n&quot;]
+
+    hourly_today = _q(
+        &quot;&quot;&quot;SELECT HOUR(entry_time) AS h, COUNT(*) AS n FROM entry_history
+           WHERE entry_time &gt;= CURDATE() GROUP BY h&quot;&quot;&quot;
+    )
+    hourly_week = _q(
+        &quot;&quot;&quot;SELECT HOUR(entry_time) AS h, COUNT(*) AS n FROM entry_history
+           WHERE entry_time &gt;= CURDATE() - INTERVAL 7 DAY AND entry_time &lt; CURDATE()
+           GROUP BY h&quot;&quot;&quot;
+    )
+    t = {r[&quot;h&quot;]: int(r[&quot;n&quot;]) for r in hourly_today}
+    w = {r[&quot;h&quot;]: int(r[&quot;n&quot;]) for r in hourly_week}
+    hourly = [{&quot;hour&quot;: h, &quot;today&quot;: t.get(h, 0), &quot;avg7&quot;: round(w.get(h, 0) / 7, 2)}
+              for h in range(24)]
+
+    daily_rows = _q(
+        &quot;&quot;&quot;SELECT DATE(entry_time) AS d, COUNT(*) AS n FROM entry_history
+           WHERE entry_time &gt;= CURDATE() - INTERVAL %s DAY
+           GROUP BY d ORDER BY d&quot;&quot;&quot;,
+        (days - 1,),
+    )
+    # เติมวันที่ไม่มีรถให้เป็น 0 (กราฟจะได้ไม่ขาดช่วง)
+    from datetime import timedelta
+    counts = {r[&quot;d&quot;]: int(r[&quot;n&quot;]) for r in daily_rows}
+    start = now.date() - timedelta(days=days - 1)
+    daily = [{&quot;date&quot;: start + timedelta(days=i), &quot;count&quot;: counts.get(start + timedelta(days=i), 0)}
+             for i in range(days)]
+
+    recent = _q(
+        &quot;SELECT plate_number, entry_time FROM entry_history ORDER BY entry_time DESC LIMIT 12&quot;
+    )
+
+    regulars = _q(
+        &quot;&quot;&quot;SELECT plate_number, COUNT(*) AS visits, MAX(entry_time) AS last_visit
+           FROM entry_history
+           WHERE entry_time &gt;= CURDATE() - INTERVAL 30 DAY
+           GROUP BY plate_number ORDER BY visits DESC, last_visit DESC LIMIT 6&quot;&quot;&quot;
+    )
+
+    occupied = sum(1 for s in slots if s[&quot;is_occupied&quot;])
+    return {
+        &quot;server_time&quot;: now,
+        &quot;summary&quot;: {
+            &quot;total_slots&quot;: len(slots),
+            &quot;occupied&quot;: occupied,
+            &quot;free&quot;: len(slots) - occupied,
+            &quot;inside&quot;: len(inside),
+            &quot;entries_today&quot;: int(today),
+            &quot;entries_yesterday_same_time&quot;: int(yesterday_same_time),
+        },
+        &quot;slots&quot;: slots,
+        &quot;inside&quot;: inside,
+        &quot;hourly&quot;: hourly,
+        &quot;daily&quot;: daily,
+        &quot;recent&quot;: recent,
+        &quot;regulars&quot;: regulars,
+    }
+
+
+# ---------- รันเฉพาะ dashboard ----------
+app = FastAPI(title=&quot;Smart Parking Dashboard&quot;)
+app.include_router(router)
+
+
+@app.get(&quot;/&quot;, include_in_schema=False)
+def _root():
+    return RedirectResponse(&quot;/dashboard&quot;)
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">dashboard.html</span><span class="fdesc">หน้าเว็บ Dashboard</span><span class="flines">435 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-xml">&lt;!doctype html&gt;
+&lt;html lang=&quot;th&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1, viewport-fit=cover&quot;&gt;
+&lt;title&gt;ลานจอดรถ · Dashboard&lt;/title&gt;
+&lt;link rel=&quot;icon&quot; href=&quot;data:image/svg+xml,&lt;svg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 100 100&#x27;&gt;&lt;text y=&#x27;.9em&#x27; font-size=&#x27;90&#x27;&gt;🅿️&lt;/text&gt;&lt;/svg&gt;&quot;&gt;
+&lt;link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;&gt;
+&lt;link rel=&quot;preconnect&quot; href=&quot;https://fonts.gstatic.com&quot; crossorigin&gt;
+&lt;link href=&quot;https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&amp;display=swap&quot; rel=&quot;stylesheet&quot;&gt;
+&lt;style&gt;
+:root {
+  color-scheme: light;
+  --bg: #E4E7EA;          /* คอนกรีต */
+  --surface: #F6F7F8;
+  --ink: #1A1F26;
+  --muted: #5B6470;
+  --rule: #CDD2D8;
+  --asphalt: #2A2E34;
+  --asphalt-2: #33383F;
+  --paint: #EDEDE6;       /* สีตีเส้น */
+  --marking: #E5B42E;     /* เหลืองจราจร */
+  --free: #1F9A67;
+  --busy: #D2463A;
+  --bar: #3F4A57;
+  --bar-soft: #A9B2BC;
+  --font: &quot;IBM Plex Sans Thai&quot;, &quot;Noto Sans Thai&quot;, &quot;Leelawadee UI&quot;, Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=&quot;light&quot;]) {
+    color-scheme: dark;
+    --bg: #14171B; --surface: #1C2025; --ink: #E7EAEE; --muted: #98A1AC; --rule: #2C3238;
+    --asphalt: #0E1013; --asphalt-2: #191C20; --paint: #D9D9D2;
+    --bar: #C3CBD4; --bar-soft: #4B545E;
+  }
+}
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+  --bg: #14171B; --surface: #1C2025; --ink: #E7EAEE; --muted: #98A1AC; --rule: #2C3238;
+  --asphalt: #0E1013; --asphalt-2: #191C20; --paint: #D9D9D2;
+  --bar: #C3CBD4; --bar-soft: #4B545E;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 15px/1.6 var(--font);
+  font-variant-numeric: tabular-nums;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 20px 48px; }
+
+/* ---------- header ---------- */
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+h1 { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--free); box-shadow: 0 0 0 3px color-mix(in srgb, var(--free) 25%, transparent); }
+.status.off .dot { background: var(--busy); box-shadow: 0 0 0 3px color-mix(in srgb, var(--busy) 25%, transparent); }
+
+.alert { display: none; margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--busy);
+  background: color-mix(in srgb, var(--busy) 10%, var(--surface)); }
+.alert.show { display: block; }
+
+/* ---------- lot (hero) ---------- */
+.top { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+.lot {
+  position: relative; border-radius: 14px; overflow: hidden; color: var(--paint);
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,.035) 0 1px, transparent 1.5px) 0 0 / 7px 7px,
+    radial-gradient(circle at 70% 60%, rgba(0,0,0,.18) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+    var(--asphalt);
+  padding: 22px 22px 0;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: end;
+}
+.sign { padding-bottom: 26px; min-width: 150px; }
+.sign .label { font-size: 15px; color: color-mix(in srgb, var(--paint) 70%, transparent); }
+.sign .big { font-size: 88px; line-height: .95; font-weight: 700; letter-spacing: -0.03em; color: #4FD39A; }
+.sign .big.full { color: #FF7A6E; font-size: 64px; }
+.sign .of { font-size: 15px; color: color-mix(in srgb, var(--paint) 70%, transparent); margin-top: 6px; }
+
+.bays-scroll { overflow-x: auto; }
+.bays { display: flex; min-width: min-content; }
+.bay {
+  position: relative; width: 112px; height: 196px; flex: 0 0 auto;
+  border-left: 4px solid var(--paint); border-top: 4px solid var(--paint);
+  display: flex; align-items: center; justify-content: center;
+}
+.bay:last-child { border-right: 4px solid var(--paint); }
+.bay .num { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-weight: 700; font-size: 22px;
+  color: color-mix(in srgb, var(--paint) 80%, transparent); }
+.bay .led { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; background: #4FD39A;
+  box-shadow: 0 0 10px 2px rgba(79,211,154,.6); }
+.bay.busy .led { background: #FF6B5E; box-shadow: 0 0 10px 2px rgba(255,107,94,.6); }
+.bay .free-label { font-size: 14px; color: #4FD39A; margin-top: -24px; }
+.bay .since { position: absolute; top: 6px; left: 8px; font-size: 11.5px; color: color-mix(in srgb, var(--paint) 55%, transparent); }
+.car { width: 66px; height: 132px; margin-top: -18px; }
+.car.arrive { animation: park .7s cubic-bezier(.2,.8,.2,1); }
+@keyframes park { from { transform: translateY(130px); opacity: 0; } to { transform: none; opacity: 1; } }
+.lane { grid-column: 1 / -1; height: 44px; margin: 0 -22px; position: relative; background: var(--asphalt-2); }
+.lane::after { content: &quot;&quot;; position: absolute; left: 22px; right: 22px; top: 50%; height: 3px; transform: translateY(-50%);
+  background: repeating-linear-gradient(90deg, var(--marking) 0 26px, transparent 26px 46px); opacity: .85; }
+
+/* ---------- side stats ---------- */
+.stats { display: grid; grid-template-rows: repeat(3, auto); gap: 16px; align-content: start; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 16px 18px; }
+.stat .k { color: var(--muted); font-size: 14px; }
+.stat .v { font-size: 34px; font-weight: 700; line-height: 1.15; }
+.stat .v small { font-size: 15px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.stat .d { font-size: 13.5px; color: var(--muted); }
+.up { color: var(--free); } .down { color: var(--busy); }
+
+/* ---------- charts ---------- */
+.grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-top: 16px; }
+.grid3 { display: grid; grid-template-columns: 1.15fr 1fr 0.85fr; gap: 16px; margin-top: 16px; }
+.grid2 &gt; *, .grid3 &gt; *, .top &gt; * { min-width: 0; }
+h2 { font-size: 17px; font-weight: 600; margin: 0 0 2px; }
+.sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; }
+.legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.chart-scroll { overflow-x: auto; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { font: 11.5px var(--font); fill: var(--muted); }
+
+/* ---------- tables ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 13px; padding: 0 0 8px; border-bottom: 1px solid var(--rule); }
+td { padding: 9px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+.plate {
+  display: inline-block; padding: 1px 9px; border-radius: 5px; font-weight: 600; font-size: 14px; letter-spacing: .02em;
+  background: #FBFBF7; color: #15191E; border: 1.5px solid #15191E; white-space: nowrap;
+}
+.state { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.state::before { content: &quot;&quot;; width: 9px; height: 9px; border-radius: 50%; background: var(--free); }
+.state.free { color: var(--free); }
+.state.busy { color: var(--busy); }
+.state.busy::before { background: var(--busy); }
+.slotno { font-weight: 600; }
+.empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+.visits { font-weight: 600; }
+
+footer { margin-top: 22px; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 1000px) {
+  .top { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; }
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 16px 12px 36px; }
+  .lot { grid-template-columns: 1fr; gap: 8px; padding: 18px 16px 0; }
+  .lane { margin: 0 -16px; }
+  .sign { padding-bottom: 4px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .sign .big { font-size: 64px; }
+  .bay { width: 78px; height: 150px; }
+  .bay .since { display: none; }
+  .car { width: 48px; height: 96px; }
+  .chart-scroll svg.chart { min-width: 560px; }
+  .stats { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .car.arrive { animation: none; } }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div class=&quot;wrap&quot;&gt;
+  &lt;header&gt;
+    &lt;h1&gt;ลานจอดรถ&lt;/h1&gt;
+    &lt;div class=&quot;status&quot; id=&quot;status&quot;&gt;&lt;span class=&quot;dot&quot;&gt;&lt;/span&gt;&lt;span id=&quot;statusText&quot;&gt;กำลังโหลดข้อมูล…&lt;/span&gt;&lt;/div&gt;
+  &lt;/header&gt;
+
+  &lt;div class=&quot;alert&quot; id=&quot;alert&quot; role=&quot;alert&quot;&gt;&lt;/div&gt;
+
+  &lt;section class=&quot;top&quot;&gt;
+    &lt;div class=&quot;lot&quot; aria-label=&quot;ผังช่องจอด&quot;&gt;
+      &lt;div class=&quot;sign&quot;&gt;
+        &lt;div class=&quot;label&quot;&gt;ที่ว่างตอนนี้&lt;/div&gt;
+        &lt;div class=&quot;big&quot; id=&quot;freeBig&quot;&gt;–&lt;/div&gt;
+        &lt;div class=&quot;of&quot; id=&quot;freeOf&quot;&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;bays-scroll&quot;&gt;&lt;div class=&quot;bays&quot; id=&quot;bays&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;lane&quot;&gt;&lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;stats&quot;&gt;
+      &lt;div class=&quot;panel stat&quot;&gt;
+        &lt;div class=&quot;k&quot;&gt;รถเข้าวันนี้&lt;/div&gt;
+        &lt;div class=&quot;v&quot; id=&quot;today&quot;&gt;–&lt;/div&gt;
+        &lt;div class=&quot;d&quot; id=&quot;todayCmp&quot;&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;panel stat&quot;&gt;
+        &lt;div class=&quot;k&quot;&gt;รถที่อยู่ในลาน&lt;/div&gt;
+        &lt;div class=&quot;v&quot; id=&quot;inside&quot;&gt;–&lt;/div&gt;
+        &lt;div class=&quot;d&quot; id=&quot;insideNote&quot;&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;panel stat&quot;&gt;
+        &lt;div class=&quot;k&quot;&gt;เฉลี่ยต่อวัน (14 วัน)&lt;/div&gt;
+        &lt;div class=&quot;v&quot; id=&quot;avgDay&quot;&gt;–&lt;/div&gt;
+        &lt;div class=&quot;d&quot; id=&quot;busiest&quot;&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;grid2&quot;&gt;
+    &lt;div class=&quot;panel&quot;&gt;
+      &lt;h2&gt;รถเข้ารายชั่วโมง&lt;/h2&gt;
+      &lt;p class=&quot;sub&quot;&gt;วันนี้เทียบกับค่าเฉลี่ย 7 วันก่อนหน้า&lt;/p&gt;
+      &lt;div class=&quot;legend&quot;&gt;&lt;span&gt;&lt;i style=&quot;background:var(--bar)&quot;&gt;&lt;/i&gt;วันนี้&lt;/span&gt;&lt;span&gt;&lt;i style=&quot;background:var(--marking)&quot;&gt;&lt;/i&gt;เฉลี่ย 7 วัน&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;chart-scroll&quot;&gt;&lt;svg class=&quot;chart&quot; id=&quot;hourly&quot; viewBox=&quot;0 0 640 210&quot; role=&quot;img&quot; aria-label=&quot;กราฟรถเข้ารายชั่วโมง&quot;&gt;&lt;/svg&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;panel&quot;&gt;
+      &lt;h2&gt;รถเข้ารายวัน&lt;/h2&gt;
+      &lt;p class=&quot;sub&quot;&gt;14 วันล่าสุด&lt;/p&gt;
+      &lt;div class=&quot;legend&quot;&gt;&lt;span&gt;&lt;i style=&quot;background:var(--bar-soft)&quot;&gt;&lt;/i&gt;วันก่อนหน้า&lt;/span&gt;&lt;span&gt;&lt;i style=&quot;background:var(--bar)&quot;&gt;&lt;/i&gt;วันนี้&lt;/span&gt;&lt;/div&gt;
+      &lt;svg class=&quot;chart&quot; id=&quot;daily&quot; viewBox=&quot;0 0 420 210&quot; role=&quot;img&quot; aria-label=&quot;กราฟรถเข้ารายวัน&quot;&gt;&lt;/svg&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;grid3&quot;&gt;
+    &lt;div class=&quot;panel&quot;&gt;
+      &lt;h2&gt;สถานะช่องจอด&lt;/h2&gt;
+      &lt;p class=&quot;sub&quot;&gt;จากเซนเซอร์ในแต่ละช่อง&lt;/p&gt;
+      &lt;div id=&quot;slotTable&quot;&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;panel&quot;&gt;
+      &lt;h2&gt;เข้าล่าสุด&lt;/h2&gt;
+      &lt;p class=&quot;sub&quot;&gt;12 รายการล่าสุดจาก entry_history&lt;/p&gt;
+      &lt;div id=&quot;recentTable&quot;&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;panel&quot;&gt;
+      &lt;h2&gt;ขาประจำ&lt;/h2&gt;
+      &lt;p class=&quot;sub&quot;&gt;เข้าบ่อยที่สุดใน 30 วัน&lt;/p&gt;
+      &lt;div id=&quot;regularTable&quot;&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;footer id=&quot;footer&quot;&gt;รีเฟรชอัตโนมัติทุก 5 วินาที&lt;/footer&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+const API = &quot;/api/dashboard&quot;;
+const REFRESH_MS = 5000;
+const CAR_COLORS = [&quot;#C9CED4&quot;, &quot;#F2F2EE&quot;, &quot;#2F4A6B&quot;, &quot;#1E2226&quot;, &quot;#9C2F2A&quot;, &quot;#5E6C5A&quot;, &quot;#B8A27A&quot;];
+const TH_DAYS = [&quot;อา&quot;, &quot;จ&quot;, &quot;อ&quot;, &quot;พ&quot;, &quot;พฤ&quot;, &quot;ศ&quot;, &quot;ส&quot;];
+let prevSlots = {};
+let lastOk = null;
+
+const $ = (id) =&gt; document.getElementById(id);
+const esc = (s) =&gt; String(s).replace(/[&amp;&lt;&gt;&quot;&#x27;]/g, c =&gt; ({ &quot;&amp;&quot;: &quot;&amp;amp;&quot;, &quot;&lt;&quot;: &quot;&amp;lt;&quot;, &quot;&gt;&quot;: &quot;&amp;gt;&quot;, &#x27;&quot;&#x27;: &quot;&amp;quot;&quot;, &quot;&#x27;&quot;: &quot;&amp;#39;&quot; }[c]));
+const parse = (s) =&gt; new Date(String(s).replace(&quot; &quot;, &quot;T&quot;));
+const hhmm = (d) =&gt; d.toLocaleTimeString(&quot;th-TH&quot;, { hour: &quot;2-digit&quot;, minute: &quot;2-digit&quot; });
+
+// 1กข1234 -&gt; 1กข 1234
+function plate(p) {
+  const m = String(p).match(/^(\d?[ก-ฮ]+)(\d+)$/);
+  return `&lt;span class=&quot;plate&quot;&gt;${esc(m ? m[1] + &quot; &quot; + m[2] : p)}&lt;/span&gt;`;
+}
+function duration(min) {
+  min = Math.max(0, Math.round(min));
+  if (min &lt; 60) return `${min} นาที`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} ชม. ${m} นาที` : `${h} ชม.`;
+}
+function ago(date, now) {
+  const min = (now - date) / 60000;
+  if (min &lt; 1) return &quot;เมื่อสักครู่&quot;;
+  if (min &lt; 60) return `${Math.round(min)} นาทีที่แล้ว`;
+  const sameDay = date.toDateString() === now.toDateString();
+  if (sameDay) return `วันนี้ ${hhmm(date)}`;
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (date.toDateString() === y.toDateString()) return `เมื่อวาน ${hhmm(date)}`;
+  return date.toLocaleDateString(&quot;th-TH&quot;, { day: &quot;numeric&quot;, month: &quot;short&quot; }) + &quot; &quot; + hhmm(date);
+}
+
+function carSVG(color, arrive) {
+  return `&lt;svg class=&quot;car${arrive ? &quot; arrive&quot; : &quot;&quot;}&quot; viewBox=&quot;0 0 60 120&quot; aria-hidden=&quot;true&quot;&gt;
+    &lt;rect x=&quot;3&quot; y=&quot;2&quot; width=&quot;54&quot; height=&quot;116&quot; rx=&quot;16&quot; fill=&quot;${color}&quot; stroke=&quot;rgba(0,0,0,.35)&quot; stroke-width=&quot;1.5&quot;/&gt;
+    &lt;path d=&quot;M10 30 Q30 20 50 30 L47 46 Q30 41 13 46 Z&quot; fill=&quot;#1d2833&quot; opacity=&quot;.9&quot;/&gt;
+    &lt;rect x=&quot;12&quot; y=&quot;50&quot; width=&quot;36&quot; height=&quot;34&quot; rx=&quot;6&quot; fill=&quot;rgba(0,0,0,.12)&quot;/&gt;
+    &lt;path d=&quot;M13 90 Q30 94 47 90 L49 104 Q30 108 11 104 Z&quot; fill=&quot;#1d2833&quot; opacity=&quot;.85&quot;/&gt;
+    &lt;rect x=&quot;7&quot; y=&quot;6&quot; width=&quot;10&quot; height=&quot;5&quot; rx=&quot;2&quot; fill=&quot;#FFF6C8&quot;/&gt;&lt;rect x=&quot;43&quot; y=&quot;6&quot; width=&quot;10&quot; height=&quot;5&quot; rx=&quot;2&quot; fill=&quot;#FFF6C8&quot;/&gt;
+    &lt;rect x=&quot;7&quot; y=&quot;110&quot; width=&quot;10&quot; height=&quot;4&quot; rx=&quot;1.5&quot; fill=&quot;#E0463A&quot;/&gt;&lt;rect x=&quot;43&quot; y=&quot;110&quot; width=&quot;10&quot; height=&quot;4&quot; rx=&quot;1.5&quot; fill=&quot;#E0463A&quot;/&gt;
+  &lt;/svg&gt;`;
+}
+
+function renderLot(d, now) {
+  const s = d.summary;
+  const big = $(&quot;freeBig&quot;);
+  if (s.total_slots === 0) {
+    big.textContent = &quot;–&quot;; $(&quot;freeOf&quot;).textContent = &quot;ยังไม่มีช่องจอดในฐานข้อมูล&quot;;
+  } else if (s.free === 0) {
+    big.textContent = &quot;เต็ม&quot;; big.classList.add(&quot;full&quot;); $(&quot;freeOf&quot;).textContent = `ทั้ง ${s.total_slots} ช่องมีรถจอด`;
+  } else {
+    big.textContent = s.free; big.classList.remove(&quot;full&quot;); $(&quot;freeOf&quot;).textContent = `จากทั้งหมด ${s.total_slots} ช่อง`;
+  }
+
+  const firstRender = Object.keys(prevSlots).length === 0;
+  $(&quot;bays&quot;).innerHTML = d.slots.map(slot =&gt; {
+    const busy = !!slot.is_occupied;
+    const arrive = busy &amp;&amp; !firstRender &amp;&amp; prevSlots[slot.slot_id] === 0;
+    const since = ago(parse(slot.updated_at), now);
+    const inner = busy
+      ? carSVG(CAR_COLORS[(slot.slot_id - 1) % CAR_COLORS.length], arrive)
+      : `&lt;span class=&quot;free-label&quot;&gt;ว่าง&lt;/span&gt;`;
+    return `&lt;div class=&quot;bay${busy ? &quot; busy&quot; : &quot;&quot;}&quot; title=&quot;ช่อง ${slot.slot_id}: ${busy ? &quot;มีรถ&quot; : &quot;ว่าง&quot;} (เปลี่ยนสถานะ ${since})&quot;&gt;
+      &lt;span class=&quot;since&quot;&gt;${esc(since)}&lt;/span&gt;&lt;span class=&quot;led&quot;&gt;&lt;/span&gt;${inner}&lt;span class=&quot;num&quot;&gt;${slot.slot_id}&lt;/span&gt;&lt;/div&gt;`;
+  }).join(&quot;&quot;);
+  prevSlots = Object.fromEntries(d.slots.map(x =&gt; [x.slot_id, x.is_occupied ? 1 : 0]));
+}
+
+function renderStats(d) {
+  const s = d.summary;
+  $(&quot;today&quot;).innerHTML = `${s.entries_today}&lt;small&gt;คัน&lt;/small&gt;`;
+  const diff = s.entries_today - s.entries_yesterday_same_time;
+  $(&quot;todayCmp&quot;).innerHTML = diff === 0
+    ? `เท่ากับเมื่อวานช่วงเวลาเดียวกัน`
+    : `&lt;span class=&quot;${diff &gt; 0 ? &quot;up&quot; : &quot;down&quot;}&quot;&gt;${diff &gt; 0 ? &quot;มากกว่า&quot; : &quot;น้อยกว่า&quot;} ${Math.abs(diff)} คัน&lt;/span&gt; เทียบเมื่อวานช่วงเวลาเดียวกัน`;
+
+  $(&quot;inside&quot;).innerHTML = `${s.inside}&lt;small&gt;คัน&lt;/small&gt;`;
+  $(&quot;insideNote&quot;).textContent = s.inside === s.occupied
+    ? `ตรงกับช่องที่มีรถ ${s.occupied} ช่อง`
+    : `เซนเซอร์เห็นรถ ${s.occupied} ช่อง (อาจมีรถที่ยังไม่ได้เข้าช่อง)`;
+
+  const total = d.daily.reduce((a, x) =&gt; a + x.count, 0);
+  const past = d.daily.slice(0, -1);
+  const avg = past.length ? past.reduce((a, x) =&gt; a + x.count, 0) / past.length : 0;
+  $(&quot;avgDay&quot;).innerHTML = `${avg.toFixed(1)}&lt;small&gt;คัน&lt;/small&gt;`;
+  const best = d.daily.reduce((a, x) =&gt; x.count &gt; a.count ? x : a, { count: -1 });
+  $(&quot;busiest&quot;).textContent = total
+    ? `วันที่เข้ามากสุด ${parse(best.date + &quot;T00:00:00&quot;).toLocaleDateString(&quot;th-TH&quot;, { weekday: &quot;short&quot;, day: &quot;numeric&quot;, month: &quot;short&quot; })} (${best.count} คัน)`
+    : &quot;ยังไม่มีข้อมูล&quot;;
+}
+
+// เลือกช่วงแกน Y ที่เป็นเลขกลม ๆ (ไม่เกิน 6 เส้น)
+function scale(v) {
+  for (const step of [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]) {
+    const n = Math.ceil(Math.max(v, 1) / step);
+    if (n &lt;= 6) return { max: n * step, step };
+  }
+  return { max: v, step: v / 4 };
+}
+function gridLines(sc, y, L, R, W) {
+  let g = &quot;&quot;;
+  for (let v = 0; v &lt;= sc.max + 1e-9; v += sc.step) {
+    const yy = y(v);
+    g += `&lt;line x1=&quot;${L}&quot; x2=&quot;${W - R}&quot; y1=&quot;${yy}&quot; y2=&quot;${yy}&quot; stroke=&quot;var(--rule)&quot;/&gt;
+          &lt;text x=&quot;${L - 6}&quot; y=&quot;${yy + 4}&quot; text-anchor=&quot;end&quot;&gt;${+v.toFixed(1)}&lt;/text&gt;`;
+  }
+  return g;
+}
+
+function renderHourly(d, now) {
+  const W = 640, H = 210, L = 28, R = 6, T = 8, B = 26;
+  const cw = (W - L - R) / 24, ch = H - T - B;
+  const sc = scale(Math.max(...d.hourly.map(x =&gt; Math.max(x.today, x.avg7))));
+  const y = v =&gt; T + ch - (v / sc.max) * ch;
+  const cur = now.getHours();
+  let g = gridLines(sc, y, L, R, W);
+  d.hourly.forEach((x, h) =&gt; {
+    const bw = cw * 0.62, bx = L + h * cw + (cw - bw) / 2;
+    if (x.today &gt; 0) {
+      const op = h === cur ? 1 : 0.85;
+      g += `&lt;rect x=&quot;${bx}&quot; y=&quot;${y(x.today)}&quot; width=&quot;${bw}&quot; height=&quot;${ch + T - y(x.today)}&quot; rx=&quot;2&quot; fill=&quot;var(--bar)&quot; opacity=&quot;${op}&quot;&gt;&lt;title&gt;${h}:00 น. วันนี้ ${x.today} คัน · เฉลี่ย ${x.avg7}&lt;/title&gt;&lt;/rect&gt;`;
+    }
+    if (h % 3 === 0) g += `&lt;text x=&quot;${L + h * cw + cw / 2}&quot; y=&quot;${H - 8}&quot; text-anchor=&quot;middle&quot;&gt;${String(h).padStart(2, &quot;0&quot;)}&lt;/text&gt;`;
+  });
+  const pts = d.hourly.map((x, h) =&gt; `${L + h * cw + cw / 2},${y(x.avg7)}`).join(&quot; &quot;);
+  g += `&lt;polyline points=&quot;${pts}&quot; fill=&quot;none&quot; stroke=&quot;var(--marking)&quot; stroke-width=&quot;2.5&quot; stroke-linejoin=&quot;round&quot;/&gt;`;
+  const nx = L + cur * cw + cw / 2;
+  g += `&lt;line x1=&quot;${nx}&quot; x2=&quot;${nx}&quot; y1=&quot;${T}&quot; y2=&quot;${T + ch}&quot; stroke=&quot;var(--muted)&quot; stroke-dasharray=&quot;3 3&quot;/&gt;
+        &lt;text x=&quot;${nx + 4}&quot; y=&quot;${T + 10}&quot;&gt;ตอนนี้&lt;/text&gt;`;
+  $(&quot;hourly&quot;).innerHTML = g;
+}
+
+function renderDaily(d) {
+  const W = 420, H = 210, L = 28, R = 4, T = 8, B = 34;
+  const n = d.daily.length, cw = (W - L - R) / n, ch = H - T - B;
+  const sc = scale(Math.max(...d.daily.map(x =&gt; x.count)));
+  const y = v =&gt; T + ch - (v / sc.max) * ch;
+  let g = gridLines(sc, y, L, R, W);
+  d.daily.forEach((x, i) =&gt; {
+    const dt = parse(x.date + &quot;T00:00:00&quot;), last = i === n - 1;
+    const bw = cw * 0.66, bx = L + i * cw + (cw - bw) / 2;
+    g += `&lt;rect x=&quot;${bx}&quot; y=&quot;${y(x.count)}&quot; width=&quot;${bw}&quot; height=&quot;${ch + T - y(x.count)}&quot; rx=&quot;2&quot; fill=&quot;${last ? &quot;var(--bar)&quot; : &quot;var(--bar-soft)&quot;}&quot;&gt;&lt;title&gt;${dt.toLocaleDateString(&quot;th-TH&quot;, { weekday: &quot;long&quot;, day: &quot;numeric&quot;, month: &quot;short&quot; })}: ${x.count} คัน&lt;/title&gt;&lt;/rect&gt;`;
+    g += `&lt;text x=&quot;${bx + bw / 2}&quot; y=&quot;${H - 18}&quot; text-anchor=&quot;middle&quot;&gt;${TH_DAYS[dt.getDay()]}&lt;/text&gt;
+          &lt;text x=&quot;${bx + bw / 2}&quot; y=&quot;${H - 4}&quot; text-anchor=&quot;middle&quot;&gt;${dt.getDate()}&lt;/text&gt;`;
+  });
+  $(&quot;daily&quot;).innerHTML = g;
+}
+
+function renderTables(d, now) {
+  $(&quot;slotTable&quot;).innerHTML = d.slots.length ? `&lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th&gt;ช่อง&lt;/th&gt;&lt;th&gt;สถานะ&lt;/th&gt;&lt;th class=&quot;r&quot;&gt;ตั้งแต่&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+    ${d.slots.map(x =&gt; `&lt;tr&gt;
+      &lt;td class=&quot;slotno&quot;&gt;ช่อง ${x.slot_id}&lt;/td&gt;
+      &lt;td&gt;${x.is_occupied ? `&lt;span class=&quot;state busy&quot;&gt;ไม่ว่าง&lt;/span&gt;` : `&lt;span class=&quot;state free&quot;&gt;ว่าง&lt;/span&gt;`}&lt;/td&gt;
+      &lt;td class=&quot;r&quot;&gt;${ago(parse(x.updated_at), now)}&lt;/td&gt;
+    &lt;/tr&gt;`).join(&quot;&quot;)}&lt;/tbody&gt;&lt;/table&gt;` : `&lt;p class=&quot;empty&quot;&gt;ยังไม่มีช่องจอดในฐานข้อมูล&lt;/p&gt;`;
+
+  $(&quot;recentTable&quot;).innerHTML = d.recent.length ? `&lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th&gt;ทะเบียน&lt;/th&gt;&lt;th class=&quot;r&quot;&gt;เวลาเข้า&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+    ${d.recent.map(x =&gt; `&lt;tr&gt;&lt;td&gt;${plate(x.plate_number)}&lt;/td&gt;&lt;td class=&quot;r&quot;&gt;${ago(parse(x.entry_time), now)}&lt;/td&gt;&lt;/tr&gt;`).join(&quot;&quot;)}
+    &lt;/tbody&gt;&lt;/table&gt;` : `&lt;p class=&quot;empty&quot;&gt;ยังไม่มีรถเข้า&lt;/p&gt;`;
+
+  $(&quot;regularTable&quot;).innerHTML = d.regulars.length ? `&lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th&gt;ทะเบียน&lt;/th&gt;&lt;th class=&quot;r&quot;&gt;ครั้ง&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+    ${d.regulars.map(x =&gt; `&lt;tr title=&quot;เข้าล่าสุด ${ago(parse(x.last_visit), now)}&quot;&gt;&lt;td&gt;${plate(x.plate_number)}&lt;/td&gt;&lt;td class=&quot;r visits&quot;&gt;${x.visits}&lt;/td&gt;&lt;/tr&gt;`).join(&quot;&quot;)}
+    &lt;/tbody&gt;&lt;/table&gt;` : `&lt;p class=&quot;empty&quot;&gt;ยังไม่มีข้อมูล&lt;/p&gt;`;
+}
+
+async function refresh() {
+  try {
+    const res = await fetch(`${API}?days=14`, { cache: &quot;no-store&quot; });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    const now = parse(d.server_time);
+    renderLot(d, now); renderStats(d); renderHourly(d, now); renderDaily(d); renderTables(d, now);
+    lastOk = now;
+    $(&quot;status&quot;).classList.remove(&quot;off&quot;);
+    $(&quot;statusText&quot;).textContent = `อัปเดตล่าสุด ${now.toLocaleTimeString(&quot;th-TH&quot;)}`;
+    $(&quot;alert&quot;).classList.remove(&quot;show&quot;);
+  } catch (e) {
+    $(&quot;status&quot;).classList.add(&quot;off&quot;);
+    $(&quot;statusText&quot;).textContent = lastOk ? `ขาดการเชื่อมต่อ · ข้อมูลล่าสุด ${lastOk.toLocaleTimeString(&quot;th-TH&quot;)}` : &quot;เชื่อมต่อไม่ได้&quot;;
+    $(&quot;alert&quot;).textContent = `ดึงข้อมูลจาก ${API} ไม่ได้ (${e.message}) — ตรวจว่า server และ MySQL ทำงานอยู่ แล้วหน้านี้จะลองใหม่เองทุก 5 วินาที`;
+    $(&quot;alert&quot;).classList.add(&quot;show&quot;);
+  }
+}
+
+refresh();
+setInterval(refresh, REFRESH_MS);
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">.env.example</span><span class="fdesc">ตัวอย่างไฟล์ตั้งค่า</span><span class="flines">32 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-ini"># คัดลอกไฟล์นี้เป็น .env แล้วแก้ค่า
+
+# ---------- MQTT ----------
+MQTT_HOST=localhost
+MQTT_PORT=1883
+MQTT_USER=
+MQTT_PASS=
+
+# ---------- MySQL ----------
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASS=root1234
+DB_NAME=smart_parking
+
+# ---------- Camera ----------
+# RTSP ของ IP Camera หรือใส่ 0 เพื่อใช้เว็บแคม
+CAMERA_URL=rtsp://admin:password@192.168.1.100:554/stream1
+
+# ---------- AI ----------
+# ไฟล์โมเดล YOLO ที่เทรนตรวจจับป้ายทะเบียน (ถ้าไม่มี จะ OCR ทั้งภาพแทน)
+YOLO_MODEL=models/license_plate.pt
+YOLO_CONF=0.5
+OCR_LANGS=th,en
+OCR_MIN_CONF=0.3
+
+
+# จำนวนช่องจอด
+TOTAL_SLOTS=4
+
+# ระยะ (วินาที) ห้ามประมวลผลซ้ำหลังเพิ่งเปิดประตู
+GATE_COOLDOWN=8
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">requirements.txt</span><span class="fdesc">Python library ที่ใช้</span><span class="flines">9 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-plaintext">fastapi==0.115.*
+uvicorn[standard]==0.32.*
+paho-mqtt==2.1.*
+mysql-connector-python==9.1.*
+python-dotenv==1.0.*
+opencv-python==4.10.*
+ultralytics&gt;=8.3
+easyocr==1.7.*
+numpy&lt;2.2
+</code></pre></div></details>
+</div>
+<div class="folder"><h3>database/</h3>
+<details class="file"><summary><span class="fname">schema.sql</span><span class="fdesc">สร้างตาราง MySQL</span><span class="flines">32 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-sql">-- =====================================================
+--  Smart Parking - MySQL Schema
+-- =====================================================
+
+CREATE DATABASE IF NOT EXISTS smart_parking
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE smart_parking;
+
+CREATE TABLE IF NOT EXISTS parking_slots (
+  slot_id     INT PRIMARY KEY,
+  is_occupied TINYINT(1) NOT NULL DEFAULT 0,
+  updated_at  DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS parking_logs (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  plate_number VARCHAR(20) NOT NULL,
+  entry_time   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_plate (plate_number),
+  INDEX idx_entry (entry_time)
+);
+
+-- ประวัติรถที่เข้าลาน (ไม่ลบ) ต่างจาก parking_logs ที่ลบเมื่อรถออก
+CREATE TABLE IF NOT EXISTS entry_history (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  plate_number VARCHAR(20) NOT NULL,
+  entry_time   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_plate (plate_number),
+  INDEX idx_entry (entry_time)
+);
+
+INSERT IGNORE INTO parking_slots (slot_id, is_occupied) VALUES (1,0);
+</code></pre></div></details>
+</div>
+<div class="folder"><h3>tools/</h3>
+<details class="file"><summary><span class="fname">simulator.py</span><span class="fdesc">จำลอง Arduino ทดสอบโดยไม่มีบอร์ด</span><span class="flines">59 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;
+จำลอง Arduino ผ่าน MQTT (ทดสอบ server ได้โดยไม่ต้องมีฮาร์ดแวร์)
+
+    pip install paho-mqtt
+    python simulator.py
+
+คำสั่ง:
+    g        = มีรถมาที่ประตู
+    p 1 1    = ช่อง 1 มีรถจอด
+    p 1 0    = ช่อง 1 ว่าง
+    q        = ออก
+&quot;&quot;&quot;
+import json
+import sys
+
+import paho.mqtt.client as mqtt
+
+HOST = sys.argv[1] if len(sys.argv) &gt; 1 else &quot;localhost&quot;
+
+
+def on_connect(c, u, f, rc, p):
+    print(f&quot;[SIM] connected to {HOST}&quot;)
+    c.subscribe([(&quot;parking/gate/open&quot;, 1), (&quot;parking/lcd/set&quot;, 1), (&quot;parking/led/set&quot;, 1)])
+
+
+def on_message(c, u, msg):
+    d = json.loads(msg.payload.decode() or &quot;{}&quot;)
+    if msg.topic == &quot;parking/lcd/set&quot;:
+        print(f&quot;\n  ┌────────────────┐\n  │{d.get(&#x27;line1&#x27;,&#x27;&#x27;):&lt;16}│\n&quot;
+              f&quot;  │{d.get(&#x27;line2&#x27;,&#x27;&#x27;):&lt;16}│\n  └────────────────┘&quot;)
+    elif msg.topic == &quot;parking/gate/open&quot;:
+        print(f&quot;\n  [SERVO] ไม้กั้นเปิด {d.get(&#x27;duration&#x27;)} ms&quot;)
+    elif msg.topic == &quot;parking/led/set&quot;:
+        icon = {&quot;green&quot;: &quot;🟢&quot;, &quot;red&quot;: &quot;🔴&quot;}.get(d.get(&quot;color&quot;), &quot;⚫&quot;)
+        print(f&quot;\n  [LED] ช่อง {d.get(&#x27;slot&#x27;)} {icon}&quot;)
+    print(&quot;&gt; &quot;, end=&quot;&quot;, flush=True)
+
+
+c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=&quot;parking-sim&quot;)
+c.on_connect = on_connect
+c.on_message = on_message
+c.connect(HOST, 1883)
+c.loop_start()
+
+print(__doc__)
+while True:
+    cmd = input(&quot;&gt; &quot;).strip().split()
+    if not cmd:
+        continue
+    if cmd[0] == &quot;q&quot;:
+        break
+    if cmd[0] == &quot;g&quot;:
+        c.publish(&quot;parking/gate/detect&quot;, json.dumps({&quot;car&quot;: True, &quot;distance&quot;: 10}), qos=1)
+    elif cmd[0] == &quot;p&quot; and len(cmd) == 3:
+        c.publish(&quot;parking/slot/status&quot;,
+                  json.dumps({&quot;slot&quot;: int(cmd[1]), &quot;occupied&quot;: cmd[2] == &quot;1&quot;}), qos=1)
+    else:
+        print(&quot;คำสั่งไม่ถูกต้อง&quot;)
+c.loop_stop()
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">serial_bridge.py</span><span class="fdesc">แปลง Serial ↔ MQTT สำหรับ UNO</span><span class="flines">78 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-python">&quot;&quot;&quot;
+Serial &lt;-&gt; MQTT Bridge สำหรับ Arduino UNO/Mega ที่ไม่มี WiFi
+
+    pip install pyserial paho-mqtt
+    python serial_bridge.py --port COM3            (Windows)
+    python serial_bridge.py --port /dev/ttyUSB0    (Linux/Mac)
+&quot;&quot;&quot;
+import argparse
+import json
+import threading
+import time
+
+import paho.mqtt.client as mqtt
+import serial
+
+T_GATE_DETECT = &quot;parking/gate/detect&quot;
+T_SLOT_STATUS = &quot;parking/slot/status&quot;
+T_GATE_OPEN = &quot;parking/gate/open&quot;
+T_LCD_SET = &quot;parking/lcd/set&quot;
+T_LED_SET = &quot;parking/led/set&quot;
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(&quot;--port&quot;, required=True)
+    ap.add_argument(&quot;--baud&quot;, type=int, default=9600)
+    ap.add_argument(&quot;--mqtt&quot;, default=&quot;localhost&quot;)
+    ap.add_argument(&quot;--mqtt-port&quot;, type=int, default=1883)
+    args = ap.parse_args()
+
+    ser = serial.Serial(args.port, args.baud, timeout=1)
+    time.sleep(2)  # UNO reset ตัวเองตอนเปิดพอร์ต
+    lock = threading.Lock()
+
+    def ser_write(line: str):
+        with lock:
+            ser.write((line + &quot;\n&quot;).encode())
+        print(&quot;&gt;&gt; Arduino:&quot;, line)
+
+    def on_connect(c, u, f, rc, p):
+        print(&quot;MQTT connected&quot;)
+        c.subscribe([(T_GATE_OPEN, 1), (T_LCD_SET, 1), (T_LED_SET, 1)])
+        ser_write(&quot;SYNC,1&quot;)
+
+    def on_message(c, u, msg):
+        d = json.loads(msg.payload.decode() or &quot;{}&quot;)
+        if msg.topic == T_GATE_OPEN:
+            ser_write(f&quot;OPEN,{d.get(&#x27;duration&#x27;, 5000)}&quot;)
+        elif msg.topic == T_LCD_SET:
+            l1 = d.get(&quot;line1&quot;, &quot;&quot;).replace(&quot;|&quot;, &quot; &quot;)
+            l2 = d.get(&quot;line2&quot;, &quot;&quot;).replace(&quot;|&quot;, &quot; &quot;)
+            ser_write(f&quot;LCD,{l1}|{l2}&quot;)
+        elif msg.topic == T_LED_SET:
+            ser_write(f&quot;LED,{d.get(&#x27;slot&#x27;)},{d.get(&#x27;color&#x27;, &#x27;off&#x27;)}&quot;)
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=&quot;parking-bridge&quot;)
+    client.on_connect = on_connect
+    client.on_message = on_message
+    client.connect(args.mqtt, args.mqtt_port)
+    client.loop_start()
+
+    print(f&quot;Bridge {args.port} &lt;-&gt; mqtt://{args.mqtt}:{args.mqtt_port}&quot;)
+    while True:
+        line = ser.readline().decode(errors=&quot;ignore&quot;).strip()
+        if not line:
+            continue
+        print(&quot;&lt;&lt; Arduino:&quot;, line)
+        parts = line.split(&quot;,&quot;)
+        if parts[0] == &quot;GATE&quot;:
+            client.publish(T_GATE_DETECT, json.dumps(
+                {&quot;car&quot;: True, &quot;distance&quot;: int(parts[1]) if len(parts) &gt; 1 else 0}), qos=1)
+        elif parts[0] == &quot;SLOT&quot; and len(parts) == 3:
+            client.publish(T_SLOT_STATUS, json.dumps(
+                {&quot;slot&quot;: int(parts[1]), &quot;occupied&quot;: parts[2] == &quot;1&quot;}), qos=1)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre></div></details>
+</div>
+<div class="folder"><h3>ตั้งค่าระบบ/</h3>
+<details class="file"><summary><span class="fname">docker-compose.yml</span><span class="fdesc">รัน MySQL + Mosquitto</span><span class="flines">29 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-yaml"># รัน MySQL + Mosquitto ด้วยคำสั่ง: docker compose up -d
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: parking-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: smart_parking
+      TZ: Asia/Bangkok
+    ports:
+      - &quot;3306:3306&quot;
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: parking-mqtt
+    restart: unless-stopped
+    ports:
+      - &quot;1883:1883&quot;
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto_data:/mosquitto/data
+
+volumes:
+  mysql_data:
+  mosquitto_data:
+</code></pre></div></details>
+<details class="file"><summary><span class="fname">mosquitto.conf</span><span class="fdesc">ตั้งค่า MQTT broker</span><span class="flines">4 บรรทัด</span></summary><div class="body"><button class="copy" type="button">คัดลอก</button><pre><code class="language-ini">listener 1883
+allow_anonymous true
+persistence true
+persistence_location /mosquitto/data/
+</code></pre></div></details>
+</div>
+  <p class="note" style="margin-top:14px">รหัส WiFi ในไฟล์ <code>.ino</code> ถูกซ่อนไว้ในหน้านี้ ไม่รวมไฟล์โมเดล <code>license_plate.pt</code> (ไฟล์ไบนารีขนาดใหญ่)</p>
+</section>
+
+<!-- ============ ผลการทดสอบ ============ -->
+<section id="results">
+  <h2>ข้อจำกัดและแนวทางพัฒนา</h2>
+  <p class="sec-sub">สิ่งที่ระบบยังทำไม่ได้ และสิ่งที่อยากทำต่อ</p>
+  <div class="two">
+    <div class="card">
+      <h3 style="margin-top:0">ข้อจำกัด</h3>
+      <ul class="plain">
+        <li>LCD 16x2 แสดงภาษาไทยไม่ได้ จึงแสดงเฉพาะตัวเลขของทะเบียน เช่น <code>1กข1234</code> เป็น <code>1-1234</code></li>
+        <li>ความแม่นยำของ OCR ขึ้นกับมุมกล้องและแสง ควรติดกล้องให้เห็นป้ายตรง ๆ ระยะ 1–3 เมตร</li>
+        <li>มีประตูเดียวใช้ทั้งเข้าและออก แยกจากการเทียบว่าทะเบียนนี้อยู่ในลานหรือไม่</li>
+        <li>ลานเต็มหรืออ่านทะเบียนไม่ได้ ระบบไม่เปิดประตู แต่ยังไม่มีข้อความแจ้งบน LCD</li>
+        <li>Mosquitto ตั้งค่าแบบไม่มีรหัสผ่าน เหมาะกับเครือข่ายภายในเท่านั้น</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">แนวทางพัฒนาต่อ</h3>
+      <ul class="plain">
+        <li>แสดงข้อความ "ลานเต็ม" หรือ "อ่านป้ายไม่ได้" บน LCD</li>
+        <li>เก็บเวลาออกเพื่อคำนวณระยะเวลาจอดและค่าจอด</li>
+        <li>เพิ่มรหัสผ่านและ TLS ให้ MQTT</li>
+        <li>เทรนโมเดล OCR เฉพาะป้ายทะเบียนไทยให้แม่นยำขึ้น และอ่านชื่อจังหวัด</li>
+        <li>แยกประตูเข้าและออก</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ผู้จัดทำ ============ -->
+<section id="team">
+  <h2>ผู้จัดทำ</h2>
+  <p class="sec-sub">รายวิชา Physical Computing ปีการศึกษา 2569</p>
+  <div class="team">
+    <div class="card member"><span class="avatar" aria-hidden="true">ธ</span><div><b>ธีรวัจน์ รัศมีวิกัย</b><span class="sid">รหัส 68070072</span></div></div>
+    <div class="card member"><span class="avatar" aria-hidden="true">น</span><div><b>นภนธ์ นาคพันธุ์</b><span class="sid">รหัส 68070077</span></div></div>
+    <div class="card member"><span class="avatar" aria-hidden="true">น</span><div><b>นิติภูมิ ฉิมนิล</b><span class="sid">รหัส 68070087</span></div></div>
+    <div class="card member"><span class="avatar" aria-hidden="true">ว</span><div><b>วงศธร แซ่เฮ่า</b><span class="sid">รหัส 68070162</span></div></div>
+  </div>
+
+  <h3 style="margin-top:40px">อ้างอิง</h3>
+  <ul class="plain">
+    <li><a href="https://docs.ultralytics.com/">Ultralytics YOLO Documentation</a></li>
+    <li><a href="https://github.com/JaidedAI/EasyOCR">EasyOCR (JaidedAI)</a></li>
+    <li><a href="https://mosquitto.org/">Eclipse Mosquitto</a></li>
+    <li><a href="https://fastapi.tiangolo.com/">FastAPI</a></li>
+    <li><a href="https://docs.arduino.cc/hardware/uno-r4-wifi/">Arduino UNO R4 WiFi</a></li>
+    <li><a href="https://universe.roboflow.com/">Roboflow Universe</a> (ชุดข้อมูลป้ายทะเบียนสำหรับเทรนโมเดล)</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <div class="in">
+    <span>Smart Parking · Physical Computing 2026</span>
+    <a href="https://github.com/pktkh35/physical-computing-project-2026">Source code บน GitHub</a>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+// ไฮไลต์โค้ดเฉพาะไฟล์ที่เปิดดู (เร็วกว่าไฮไลต์ทุกไฟล์ตอนโหลด)
+document.querySelectorAll("details.file").forEach(function (d) {
+  d.addEventListener("toggle", function () {
+    var c = d.querySelector("pre code");
+    if (d.open && window.hljs && !c.dataset.done) { hljs.highlightElement(c); c.dataset.done = "1"; }
+  });
+});
+document.querySelectorAll(".copy").forEach(function (b) {
+  b.addEventListener("click", function () {
+    var text = b.parentElement.querySelector("code").innerText;
+    navigator.clipboard.writeText(text).then(function () {
+      b.textContent = "คัดลอกแล้ว";
+      setTimeout(function () { b.textContent = "คัดลอก"; }, 1500);
+    });
+  });
+});
+</script>
+</body>
+</html>
