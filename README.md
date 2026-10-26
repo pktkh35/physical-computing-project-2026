@@ -201,3 +201,13 @@ mosquitto_pub -t parking/cmd/gate/open -m '{}'
 - Mosquitto ตั้งค่าแบบไม่มีรหัสผ่าน เหมาะกับเครือข่ายภายในเท่านั้น
 - `MQTT_HOST` ในไฟล์ `.ino` ต้องแก้ให้ตรงกับ broker ของคุณ (ค่าในโค้ดตอนนี้เป็น broker สาธารณะ `mqtt-dashboard.com` ซึ่งใครก็อ่าน topic ได้)
 - ลานเต็มหรืออ่านทะเบียนไม่ได้ ระบบแค่ไม่เปิดประตู ยังไม่มีข้อความแจ้งบน LCD
+
+
+## Contributors
+
+| ID       | Name                                  | Img                                                                             |
+|----------|---------------------------------------|---------------------------------------------------------------------------------|
+| 68070072 | นายธีรวัจน์ รัศมีวิกัย (ธีร์)          | <img alt="Thee" height="150" src="assets/img/Thee.jpg" width="150"/> |
+| 68070077 | นายนภนธ์ นาคพันธุ์ (ตอง) | <img alt="Tong" height="150" src="assets/img/Tong.jpg" width="150"/>     |
+| 68070087 | นายนิติภูมิ ฉิมนิล (ปอนด์)          | <img alt="Pond" height="150" src="assets/img/Pond.jpg" width="150"/>    |
+| 68070162 | นายวงศธร แซ่เฮ่า (อ้น)        | <img alt="Aon" height="150" src="assets/img/Aon.jpg" width="150"/>     |
